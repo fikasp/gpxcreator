@@ -753,6 +753,7 @@ const MapView = {
 		marker._saved = false
 
 		const cleanup = () => {
+			STATE.activeCancel = null
 			MapView.enableAdding()
 			if (MapView._instance.hasLayer(marker)) {
 				MapView._instance.removeLayer(marker)
@@ -761,17 +762,17 @@ const MapView = {
 
 		const save = (name, desc) => {
 			marker._saved = true
+			STATE.activeCancel = null
 			MapView.enableAdding()
-			marker.unbindPopup()
-			marker.bindPopup(MapView.createViewPopup(name, desc), { closeButton: false, closeOnClick: true }).openPopup()
 			onSave(marker, name, desc)
 		}
 
 		const content = MapView.createFormPopup('', '', save, cleanup)
 
 		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+		STATE.activeCancel = cleanup
 
-		marker.on('popupclose', (e) => {
+		marker.on('popupclose', () => {
 			if (!marker._saved) {
 				setTimeout(() => {
 					cleanup()
@@ -789,11 +790,9 @@ const MapView = {
 		const originalLatLng = marker.getLatLng()
 		let currentLatLng = marker.getLatLng()
 
-		// 1. Zamykamy i odpinamy stary popup widoku, aby zapobiec nakładaniu się warstw
 		marker.closePopup()
 		marker.unbindPopup()
 
-		// Włączamy możliwość przeciągania znacznika
 		marker.dragging.enable()
 
 		const finishEditing = () => {
@@ -801,6 +800,7 @@ const MapView = {
 			marker.off('dragend', handleDragEnd)
 			marker.dragging.disable()
 			MapView.enableAdding()
+			STATE.activeCancel = null
 		}
 
 		const revertToView = () => {
@@ -812,27 +812,20 @@ const MapView = {
 
 		const save = (newName, newDesc) => {
 			finishEditing()
-			marker.unbindPopup()
-			marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false, closeOnClick: true }).openPopup()
-			onSave(newName, newDesc, currentLatLng.lat, currentLatLng.lng)
+			onSave(newName, newDesc, currentLatLng.lat, currentLatLng.lng) // Logic.editWaypoint samo ustawi poprawny popup widoku
 		}
 
-		// 2. Tworzymy formularz edycji
 		const content = MapView.createFormPopup(name, desc, save, revertToView)
 
-		// 3. Bindujemy popup formularza z blokadą zamykania przez kliknięcie w mapę
 		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+		STATE.activeCancel = revertToView
 
-		// 4. Obsługa przeciągania (drag & drop)
 		const handleDragStart = () => {
-			// Schowanie popupu na czas ruchu sprawia, że przeciąganie działa płynnie i bez błędów graficznych
 			marker.closePopup()
 		}
 
 		const handleDragEnd = () => {
-			// Zapamiętujemy nową pozycję, w której użytkownik puścił myszkę
 			currentLatLng = marker.getLatLng()
-			// Otwieramy popup formularza ponownie nad nową pozycją markera
 			marker.openPopup()
 		}
 
@@ -915,7 +908,6 @@ const CONFIG = {
 		tileAttribution: '&copy; OpenStreetMap contributors',
 	},
 	gpx: {
-		filename: 'Punkty.gpx',
 		creator: 'GPX Creator',
 		coordPrecision: 7,
 	},
@@ -929,8 +921,10 @@ const CONFIG = {
 		panelCollapsed: 'panel-collapsed',
 		panelWidth: 'panel-width',
 		waypoints: 'waypoints',
+		listName: 'list-name',
 	},
 	defaults: {
+		listName: 'Punkty',
 		panelCollapsed: true,
 		panelWidth: 300,
 	},
@@ -945,7 +939,9 @@ const STATE = {
 	nextId: 1,
 	panelCollapsed: Storage.get(CONFIG.storage.panelCollapsed) ?? CONFIG.defaults.panelCollapsed,
 	panelWidth: Storage.get(CONFIG.storage.panelWidth) ?? CONFIG.defaults.panelWidth,
+	listName: Storage.get(CONFIG.storage.listName) ?? CONFIG.defaults.listName,
 	isDragging: false,
+	activeCancel: null,
 	draggedId: null,
 }
 //#endregion
@@ -965,6 +961,7 @@ const $ = {
 		element: DOM.getById('panel'),
 		list: DOM.getById('panel-list'),
 		count: DOM.getById('panel-count'),
+		titleName: DOM.getById('panel-title-name'),
 		saveButton: DOM.getById('panel-save'),
 		clearButton: DOM.getById('panel-clear'),
 		toggleButton: DOM.getById('panel-toggle'),
@@ -1013,6 +1010,10 @@ const Pure = {
 	// @b Get max panel width
 	//------------------------
 	getMaxPanelWidth: () => Math.min(CONFIG.panel.maxWidth, window.innerWidth - CONFIG.panel.minMapWidth),
+
+	// @b Sanitize filename
+	//------------------------
+	sanitizeFilename: (name) => name.replace(/[\\/:*?"<>|]/g, '').trim() || 'Punkty',
 }
 //#endregion
 //========================
@@ -1044,11 +1045,12 @@ const Effects = {
 		const xml = Pure.buildGpx(waypoints)
 		const blob = new Blob([xml], { type: 'application/gpx+xml' })
 		const url = URL.createObjectURL(blob)
+		const filename = `${Pure.sanitizeFilename(STATE.listName)}.gpx`
 
 		const link = DOM.create({
 			type: 'a',
 			href: url,
-			download: CONFIG.gpx.filename,
+			download: filename,
 		})
 		link.click()
 		URL.revokeObjectURL(url)
@@ -1090,6 +1092,12 @@ const Effects = {
 		DOM.setStyle($.panel.element, '--panel-min-width', `${CONFIG.panel.minWidth}px`)
 		DOM.setStyle($.panel.element, '--panel-max-width', `${CONFIG.panel.maxWidth}px`)
 		DOM.setStyle($.panel.element, '--panel-width', `${STATE.panelWidth}px`)
+	},
+
+	// @b Apply panel title
+	//------------------------
+	applyListName: () => {
+		DOM.setText($.panel.titleName, STATE.listName)
 	},
 }
 //#endregion
@@ -1264,28 +1272,15 @@ const Logic = {
 //#region @r HANDLERS
 //========================
 const Handlers = {
+	// @g Map & Waypoints
+	//------------------------
 	// @b Map click
 	//------------------------
 	mapClick: (e) => {
-		if (MapView._instance._popup?.isOpen()) return
-
 		Log.enter('mapClick', e.latlng)
 		const { lat, lng } = e.latlng
 		MapView.openAddPopup(lat, lng, (marker, name, desc) => Logic.addWaypoint(lat, lng, name, desc, marker))
 		Log.exit()
-	},
-
-	// @b Sort click
-	//------------------------
-	sortClick: () => {
-		if (STATE.waypoints.length < 2) return
-		Logic.sortWaypointsByName()
-	},
-
-	// @b Delete waypoint click
-	//------------------------
-	deleteWaypointClick: (id) => {
-		Logic.removeWaypoint(id)
 	},
 
 	// @b Edit waypoint click
@@ -1299,6 +1294,12 @@ const Handlers = {
 		})
 	},
 
+	// @b Delete waypoint click
+	//------------------------
+	deleteWaypointClick: (id) => {
+		Logic.removeWaypoint(id)
+	},
+
 	// @b Select waypoint click
 	//------------------------
 	selectWaypointClick: (id) => {
@@ -1306,7 +1307,15 @@ const Handlers = {
 		if (!waypoint || !waypoint.marker) return
 		MapView.focusMarker(waypoint.marker)
 	},
+	// @b Sort click
+	//------------------------
+	sortClick: () => {
+		if (STATE.waypoints.length < 2) return
+		Logic.sortWaypointsByName()
+	},
 
+	// @g GPX Import / Export
+	//------------------------
 	// @b Save GPX click
 	//------------------------
 	saveGpxClick: () => {
@@ -1323,7 +1332,7 @@ const Handlers = {
 		$.panel.importInput.click()
 	},
 
-	// @b Import File Changed
+	// @b Import file changed
 	//------------------------
 	importFileChanged: (e) => {
 		const file = e.target.files[0]
@@ -1341,6 +1350,8 @@ const Handlers = {
 		Modal.confirm('Wyczyścić wszystko?', 'Czy na pewno chcesz usunąć wszystkie punkty?', Logic.clearWaypoints)
 	},
 
+	// @g Panel Toggle & Resize
+	//------------------------
 	// @b Toggle panel click
 	//------------------------
 	togglePanelClick: () => {
@@ -1348,7 +1359,7 @@ const Handlers = {
 		Effects.updatePanelVisibility()
 	},
 
-	// @b Panel Resize Start
+	// @b Panel resize start
 	//------------------------
 	resizerMouseDown: (e) => {
 		Log.enter('resizerMouseDown')
@@ -1359,7 +1370,7 @@ const Handlers = {
 		Log.exit()
 	},
 
-	// @b Panel Resize Moving
+	// @b Panel resize moving
 	//------------------------
 	resizerMouseMove: (e) => {
 		if (!STATE.isDragging) return
@@ -1378,7 +1389,7 @@ const Handlers = {
 		}
 	},
 
-	// @b Panel Resize End
+	// @b Panel resize end
 	//------------------------
 	resizerMouseUp: () => {
 		if (!STATE.isDragging) return
@@ -1406,6 +1417,9 @@ const Handlers = {
 			MapView._instance.invalidateSize({ animate: false })
 		}
 	},
+
+	// @g List Drag & Drop
+	//------------------------
 	// @b Drag start - remember dragged waypoint id
 	//------------------------
 	dragStart: (e) => {
@@ -1449,6 +1463,47 @@ const Handlers = {
 		DOM.getAll('.panel__item--over', $.panel.list).forEach((el) => DOM.removeClass(el, 'panel__item--over'))
 		STATE.draggedId = null
 	},
+
+	// @g Panel Title
+	//------------------------
+	// @b Title name blur
+	//------------------------
+	titleNameBlur: (e) => {
+		const newName = DOM.getText(e.target).trim() || CONFIG.defaults.listName
+		STATE.listName = newName
+		Effects.applyListName()
+		Storage.set(CONFIG.storage.listName, newName)
+	},
+
+	// @b Title name keydown
+	//------------------------
+	titleNameKeydown: (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault()
+			e.target.blur()
+		} else if (e.key === 'Escape') {
+			e.preventDefault()
+			e.stopPropagation()
+			DOM.setText(e.target, STATE.listName)
+			e.target.blur()
+		}
+	},
+
+	// @g Global Keyboard
+	//------------------------
+	// @b Escape key
+	//------------------------
+	escapeKeydown: (e) => {
+		if (e.key !== 'Escape' || Modal.isOpen()) return
+
+		if (STATE.activeCancel) {
+			const cancel = STATE.activeCancel
+			STATE.activeCancel = null
+			cancel()
+		} else {
+			MapView._instance.closePopup()
+		}
+	},
 }
 //#endregion
 //========================
@@ -1457,6 +1512,8 @@ const Handlers = {
 const Listeners = {
 	init: () => {
 		Log.enter('Listeners')
+		DOM.on($.panel.titleName, 'blur', Handlers.titleNameBlur)
+		DOM.on($.panel.titleName, 'keydown', Handlers.titleNameKeydown)
 		DOM.on($.panel.saveButton, 'click', Handlers.saveGpxClick)
 		DOM.on($.panel.clearButton, 'click', Handlers.clearAllClick)
 		DOM.on($.panel.toggleButton, 'click', Handlers.togglePanelClick)
@@ -1471,6 +1528,7 @@ const Listeners = {
 		DOM.on(window, 'resize', Tools.debounce(Handlers.windowResize, 150))
 		DOM.on(document, 'mousemove', Handlers.resizerMouseMove)
 		DOM.on(document, 'mouseup', Handlers.resizerMouseUp)
+		DOM.on(document, 'keydown', Handlers.escapeKeydown)
 		Log.exit()
 	},
 }
@@ -1489,6 +1547,7 @@ const App = {
 		Logic.clampPanelWidth()
 		Listeners.init()
 		Panel.render()
+		Effects.applyListName()
 		Effects.applyPanelWidth()
 		Effects.updatePanelVisibility()
 		Effects.updateFavicon()

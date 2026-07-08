@@ -36,7 +36,17 @@
 			<aside id="panel" class="main__panel">
 				<div id="panel-resizer" class="panel__resizer"></div>
 				<div class="panel__header">
-					<h2 class="panel__title">Punkty (<span id="panel-count">0</span>)</h2>
+					<h2 class="panel__title">
+						<span
+							id="panel-title-name"
+							class="panel__title-name"
+							contenteditable="true"
+							spellcheck="false"
+							title="Kliknij, aby zmienić nazwę"
+							>Punkty</span
+						>
+						(<span id="panel-count">0</span>)
+					</h2>
 					<button id="panel-sort" class="panel__sort" title="Sortuj alfabetycznie">A→Z</button>
 				</div>
 				<ul id="panel-list" class="panel__list"></ul>

@@ -8,7 +8,7 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 * **Lista punktów** w bocznym panelu, z możliwością usuwania pojedynczych wpisów.
 * **Eksport do GPX** — zapis wszystkich punktów na dysku jednym kliknięciem.
 * **Mapa OpenStreetMap** (Leaflet) — bez kluczy API, bez opłat.
-* **Brak `node_modules`**, bundlera i live servera — wystarczy otworzyć `index.html`.
+* **Brak `node_modules`**, bundlera i live servera.
 
 ## 🏛️ Struktura projektu
 
@@ -25,7 +25,7 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 3. **Wpisz nazwę** obiektu w okienku, które się pojawi, i zatwierdź.
 4. Punkt pojawi się na mapie i na liście w panelu bocznym.
 5. Powtórz dla kolejnych punktów, w razie potrzeby usuwaj je przyciskiem **×**.
-6. Kliknij **„Zapisz GPX”**, aby pobrać plik `trasa.gpx` na dysk.
+6. Kliknij **„Zapisz”**, aby pobrać plik `Punkty.gpx` na dysk.
 
 ## ⚙️ Technologie
 
@@ -36,12 +36,19 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⏱️ Historia wersji
 
-* **v1.2 (2026-07-08):** Dodanie kolejnych funkcjonalności.
-  * Dodano ręczne sortowanie punktów metodą przeciągnij-upuść.
+* **v1.3 (2026-07-09):** Dodatkowe funkcjonalności.
+  * Dodano kliknięcie punktu z listy w panelu, aby wycentrować na nim mapę.
+  * Dodano ręczne przesuwanie punktu markera na mapie, aby zmienić jego lokalizację.
+  * Dodano obsługę klawisza Escape do anulowania edycji/dodawania i zamykania popupów.
+  * Dodano edytowalną nazwę listy punktów w nagłówku panelu.
+
+* **v1.2 (2026-07-08):** Popupy zamiast okienek modalnych.
+  * Zastąpiono okienka modalne popupami przy edycji i dodawaniu punktów.
+  * Dodano ręczne sortowanie punktów w panelu metodą przeciągnij-upuść.
   * Dodano przycisk sortowania alfabetycznego listy punktów.
   * Dodano zapamiętywanie ostatniego widoku mapy.
 
-* **v1.1 (2026-07-08):** Dodanie nowych funkcjonalności.
+* **v1.1 (2026-07-08):** Import plików.
   * Dodano import plików GPX z możliwością wczytania punktów z dysku.
   * Dodano automatyczny zapis punktów w `localStorage`.
   * Dodano przeciąganie szerokości panelu.

@@ -340,6 +340,21 @@ main {
 	font-weight: bold;
 }
 
+.panel__title-name {
+	cursor: text;
+	border-bottom: 1px dashed transparent;
+	outline: none;
+	transition: var(--transition);
+}
+
+.panel__title-name:hover {
+	border-bottom-color: var(--gray4);
+}
+
+.panel__title-name:focus {
+	border-bottom-color: var(--blue);
+}
+
 .panel__sort {
 	background: transparent;
 	color: var(--gray8);
