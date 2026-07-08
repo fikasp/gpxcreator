@@ -36,6 +36,10 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⏱️ Historia wersji
 
+* **v2.0 (2026-07-09):** Layout.
+  * Zmieniono generalną strukturę layoutu.
+  * Dodano przezroczystość i efektu blur.
+
 * **v1.3 (2026-07-09):** Dodatkowe funkcjonalności.
   * Dodano kliknięcie punktu z listy w panelu, aby wycentrować na nim mapę.
   * Dodano ręczne przesuwanie punktu markera na mapie, aby zmienić jego lokalizację.
