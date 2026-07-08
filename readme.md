@@ -36,6 +36,10 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⏱️ Historia wersji
 
+* **v1.2 (2026-07-08):** Dodanie kolejnych funkcjonalności.
+  * Dodano ręczne sortowanie punktów metodą przeciągnij-upuść.
+  * Dodano przycisk sortowania alfabetycznego listy punktów.
+  * Dodano zapamiętywanie ostatniego widoku mapy.
 
 * **v1.1 (2026-07-08):** Dodanie nowych funkcjonalności.
   * Dodano import plików GPX z możliwością wczytania punktów z dysku.

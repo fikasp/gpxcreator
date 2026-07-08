@@ -630,7 +630,12 @@ const MapView = {
 	//------------------------
 	init: () => {
 		Log.enter('MapView')
-		MapView._instance = L.map($.main.map, { keyboard: false }).setView(CONFIG.map.center, CONFIG.map.zoom)
+
+		const savedView = Storage.get(CONFIG.storage.mapView)
+		const center = savedView?.center ?? CONFIG.map.center
+		const zoom = savedView?.zoom ?? CONFIG.map.zoom
+
+		MapView._instance = L.map($.main.map, { keyboard: false }).setView(center, zoom)
 
 		L.tileLayer(CONFIG.map.tileUrl, {
 			attribution: CONFIG.map.tileAttribution,
@@ -638,6 +643,7 @@ const MapView = {
 		}).addTo(MapView._instance)
 
 		MapView._instance.on('click', Handlers.mapClick)
+		MapView._instance.on('moveend zoomend', Tools.debounce(Effects.saveMapView, 300))
 		Log.exit()
 	},
 
@@ -694,21 +700,34 @@ const Panel = {
 		DOM.clear($.panel.list)
 
 		STATE.waypoints.forEach((wp) => {
-			const item = DOM.create({ type: 'li', classes: ['panel__item'], parent: $.panel.list })
+			const item = DOM.create({
+				type: 'li',
+				classes: ['panel__item'],
+				parent: $.panel.list,
+				draggable: 'true',
+				dataset: { id: wp.id },
+			})
+
+			const mainContainer = DOM.create({ type: 'div', classes: ['panel__item-main'], parent: item })
+
+			DOM.create({
+				type: 'span',
+				classes: ['panel__item-handle'],
+				children: '⠿',
+				parent: mainContainer,
+			})
 
 			DOM.create({
 				type: 'span',
 				classes: ['panel__item-name'],
 				children: wp.name,
-				parent: item,
+				parent: mainContainer,
 			})
 
-			// Kontener na akcje punktu, żeby ładnie stały obok siebie
 			const actionsContainer = DOM.create({ type: 'div', classes: ['panel__item-actions'], parent: item })
 			DOM.setStyle(actionsContainer, 'display', 'flex')
 			DOM.setStyle(actionsContainer, 'gap', '5px')
 
-			// Edit button
 			DOM.create({
 				type: 'button',
 				classes: ['panel__item-edit'],
@@ -717,7 +736,6 @@ const Panel = {
 				listeners: { click: () => Handlers.editWaypointClick(wp.id) },
 			})
 
-			// Delete button
 			DOM.create({
 				type: 'button',
 				classes: ['panel__item-delete'],
@@ -743,7 +761,7 @@ const CONFIG = {
 		tileAttribution: '&copy; OpenStreetMap contributors',
 	},
 	gpx: {
-		filename: 'punkty.gpx',
+		filename: 'Punkty.gpx',
 		creator: 'GPX Creator',
 		coordPrecision: 7,
 	},
@@ -753,6 +771,7 @@ const CONFIG = {
 		minMapWidth: 0,
 	},
 	storage: {
+		mapView: 'map-view',
 		panelCollapsed: 'panel-collapsed',
 		panelWidth: 'panel-width',
 		waypoints: 'waypoints',
@@ -773,6 +792,7 @@ const STATE = {
 	panelCollapsed: Storage.get(CONFIG.storage.panelCollapsed) ?? CONFIG.defaults.panelCollapsed,
 	panelWidth: Storage.get(CONFIG.storage.panelWidth) ?? CONFIG.defaults.panelWidth,
 	isDragging: false,
+	draggedId: null,
 }
 //#endregion
 //========================
@@ -796,6 +816,7 @@ const $ = {
 		toggleButton: DOM.getById('panel-toggle'),
 		importButton: DOM.get('#panel-import-btn'),
 		importInput: DOM.get('#panel-import-input'),
+		sortButton: DOM.getById('panel-sort'),
 		resizer: DOM.getById('panel-resizer'),
 	},
 	footer: {
@@ -885,6 +906,17 @@ const Effects = {
 	saveWaypoints: () => {
 		const data = STATE.waypoints.map((wp) => ({ id: wp.id, lat: wp.lat, lon: wp.lon, name: wp.name, desc: wp.desc }))
 		Storage.set(CONFIG.storage.waypoints, data)
+	},
+
+	// @b Save current map view to storage
+	//------------------------
+	saveMapView: () => {
+		if (!MapView._instance) return
+		const center = MapView._instance.getCenter()
+		Storage.set(CONFIG.storage.mapView, {
+			center: [center.lat, center.lng],
+			zoom: MapView._instance.getZoom(),
+		})
 	},
 
 	// @b Update panel visibility
@@ -981,6 +1013,32 @@ const Logic = {
 		Log.exit()
 	},
 
+	// @b Reorder waypoints (drag & drop)
+	//------------------------
+	reorderWaypoints: (draggedId, targetId) => {
+		const fromIndex = STATE.waypoints.findIndex((wp) => wp.id === draggedId)
+		const toIndex = STATE.waypoints.findIndex((wp) => wp.id === targetId)
+		if (fromIndex === -1 || toIndex === -1) return
+
+		const [moved] = STATE.waypoints.splice(fromIndex, 1)
+		STATE.waypoints.splice(toIndex, 0, moved)
+
+		Panel.render()
+		Effects.saveWaypoints()
+	},
+
+	// @b Sort waypoints alphabetically by name
+	//------------------------
+	sortWaypointsByName: () => {
+		Log.enter('sortWaypointsByName')
+
+		STATE.waypoints.sort((a, b) => a.name.localeCompare(b.name, 'pl'))
+
+		Panel.render()
+		Effects.saveWaypoints()
+		Log.exit()
+	},
+
 	// @b Import GPX from file
 	//------------------------
 	importGpx: (file) => {
@@ -1057,6 +1115,13 @@ const Handlers = {
 			'Nowy punkt',
 		)
 		Log.exit()
+	},
+
+	// @b Sort click
+	//------------------------
+	sortClick: () => {
+		if (STATE.waypoints.length < 2) return
+		Logic.sortWaypointsByName()
 	},
 
 	// @b Delete waypoint click
@@ -1180,6 +1245,49 @@ const Handlers = {
 			MapView._instance.invalidateSize({ animate: false })
 		}
 	},
+	// @b Drag start - remember dragged waypoint id
+	//------------------------
+	dragStart: (e) => {
+		const item = e.target.closest('.panel__item')
+		if (!item) return
+		STATE.draggedId = Number(item.dataset.id)
+		DOM.addClass(item, 'panel__item--dragging')
+		e.dataTransfer.effectAllowed = 'move'
+		e.dataTransfer.setData('text/plain', String(STATE.draggedId))
+	},
+
+	// @b Drag over - show drop indicator
+	//------------------------
+	dragOver: (e) => {
+		e.preventDefault()
+		const item = e.target.closest('.panel__item')
+		if (!item || Number(item.dataset.id) === STATE.draggedId) return
+
+		DOM.getAll('.panel__item--over', $.panel.list).forEach((el) => DOM.removeClass(el, 'panel__item--over'))
+		DOM.addClass(item, 'panel__item--over')
+	},
+
+	// @b Drop - reorder waypoints
+	//------------------------
+	drop: (e) => {
+		e.preventDefault()
+		const item = e.target.closest('.panel__item')
+		DOM.getAll('.panel__item--over', $.panel.list).forEach((el) => DOM.removeClass(el, 'panel__item--over'))
+		if (!item) return
+
+		const targetId = Number(item.dataset.id)
+		if (targetId !== STATE.draggedId) {
+			Logic.reorderWaypoints(STATE.draggedId, targetId)
+		}
+	},
+
+	// @b Drag end - cleanup
+	//------------------------
+	dragEnd: () => {
+		DOM.getAll('.panel__item--dragging', $.panel.list).forEach((el) => DOM.removeClass(el, 'panel__item--dragging'))
+		DOM.getAll('.panel__item--over', $.panel.list).forEach((el) => DOM.removeClass(el, 'panel__item--over'))
+		STATE.draggedId = null
+	},
 }
 //#endregion
 //========================
@@ -1193,7 +1301,12 @@ const Listeners = {
 		DOM.on($.panel.toggleButton, 'click', Handlers.togglePanelClick)
 		DOM.on($.panel.importButton, 'click', Handlers.importGpxClick)
 		DOM.on($.panel.importInput, 'change', Handlers.importFileChanged)
+		DOM.on($.panel.sortButton, 'click', Handlers.sortClick)
 		DOM.on($.panel.resizer, 'mousedown', Handlers.resizerMouseDown)
+		DOM.on($.panel.list, 'dragstart', Handlers.dragStart)
+		DOM.on($.panel.list, 'dragover', Handlers.dragOver)
+		DOM.on($.panel.list, 'drop', Handlers.drop)
+		DOM.on($.panel.list, 'dragend', Handlers.dragEnd)
 		DOM.on(window, 'resize', Tools.debounce(Handlers.windowResize, 150))
 		DOM.on(document, 'mousemove', Handlers.resizerMouseMove)
 		DOM.on(document, 'mouseup', Handlers.resizerMouseUp)

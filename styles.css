@@ -12,6 +12,7 @@
 	--gray3: #333;
 	--gray4: #444;
 	--gray8: #888;
+	--grayC: #ccc;
 	--white: #fff;
 	/* colors */
 	--green: forestgreen;
@@ -146,21 +147,21 @@ main {
 .map-popup {
 	display: flex;
 	flex-direction: column;
+	min-width: 200px;
 	gap: 10px;
-	min-width: 150px;
 }
 
 .map-popup__title {
 	color: var(--white);
-
+	line-height: 1.5;
 	border-bottom: 1px solid var(--gray4);
 	padding-bottom: 6px;
-	font-size: 1rem;
+	font-size: 0.9rem;
 }
 
 .map-popup__desc {
-	font-size: 0.9rem;
-	color: var(--gray8);
+	font-size: 0.8rem;
+	color: var(--grayC);
 	line-height: 1.3;
 	white-space: pre-wrap;
 	margin-bottom: 4px;
@@ -266,14 +267,33 @@ main {
 /* @b Header */
 /*------------------------*/
 .panel__header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
 	border-bottom: 1px solid var(--gray4);
 	padding-bottom: 10px;
 }
-
 .panel__title {
 	font-size: 1.1rem;
 	font-weight: bold;
 }
+
+.panel__sort {
+	background: transparent;
+	color: var(--gray8);
+	border: 1px solid var(--gray4);
+	border-radius: 4px;
+	padding: 4px 8px;
+	font-size: 0.8rem;
+	cursor: pointer;
+	transition: var(--transition);
+}
+
+.panel__sort:hover {
+	color: var(--white);
+	border-color: var(--blue);
+}
+
 /* @b List */
 /*------------------------*/
 .panel__list {
@@ -294,10 +314,41 @@ main {
 	gap: 10px;
 }
 
+.panel__item-main {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	overflow: hidden;
+	flex: 1;
+}
+
+.panel__item-handle {
+	cursor: grab;
+	color: var(--gray4);
+	user-select: none;
+}
+
+.panel__item-handle:active {
+	cursor: grabbing;
+}
+
 .panel__item-name {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	min-width: 0;
+}
+
+.panel__item-actions {
+	flex-shrink: 0;
+}
+
+.panel__item--dragging {
+	opacity: 0.4;
+}
+
+.panel__item--over {
+	border-top: 2px solid var(--blue);
 }
 
 .panel__item-delete {
@@ -507,6 +558,7 @@ footer {
 
 .modal__textarea {
 	width: 100%;
+	min-height: 200px;
 	padding: 10px;
 	background: var(--gray3);
 	border: 1px solid var(--gray4);
@@ -519,20 +571,6 @@ footer {
 
 .modal__textarea:focus {
 	border-color: var(--blue);
-}
-
-/* @b Input */
-/*------------------------*/
-.modal__input {
-	width: 100%;
-	background: var(--gray3);
-	color: var(--white);
-	padding: 10px;
-	border-radius: 5px;
-}
-
-.modal__input:focus {
-	outline: 1px solid var(--gray4);
 }
 
 /* @b Buttons */
@@ -556,4 +594,19 @@ footer {
 .modal__button:hover {
 	background-color: var(--gray4);
 }
+
+/* @b Input */
+/*------------------------*/
+.modal__input {
+	width: 100%;
+	background: var(--gray3);
+	color: var(--white);
+	padding: 10px;
+	border-radius: 5px;
+}
+
+.modal__input:focus {
+	outline: 1px solid var(--gray4);
+}
+
 /*#endregion*/
