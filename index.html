@@ -1,0 +1,115 @@
+<!-- @p VanillaJS GPX Creator
+------------------------->
+<!doctype html>
+<html lang="pl">
+	<!--====================-->
+	<!--#region @r HEAD -->
+	<!--====================-->
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- Font Avesome -->
+		<link rel="stylesheet" href="vendor/fontawesome.css" />
+		<!-- Leaflet (mapa OpenStreetMap) -->
+		<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+		<!-- Styles -->
+		<link rel="stylesheet" href="styles.css" />
+		<!-- Title -->
+		<title>GPX Creator</title>
+	</head>
+	<!--#endregion -->
+	<!--====================-->
+	<!--#region @r BODY -->
+	<!--====================-->
+	<body>
+		<!------------------------
+		 @g HEADER
+		------------------------->
+		<header>GPX Creator</header>
+		<!------------------------
+		 @g MAIN
+		------------------------->
+		<main>
+			<!-- Map -->
+			<div id="map" class="main__map"></div>
+			<!-- Panel -->
+			<aside id="panel" class="main__panel">
+				<div class="panel__header">
+					<h2 class="panel__title">Punkty (<span id="panel-count">0</span>)</h2>
+				</div>
+				<ul id="panel-list" class="panel__list"></ul>
+				<div class="panel__actions">
+					<button id="panel-clear" class="panel__button panel__button--clear">Wyczyść</button>
+					<button id="panel-save" class="panel__button panel__button--save">Zapisz GPX</button>
+				</div>
+			</aside>
+			<button id="panel-toggle" class="panel__toggle" aria-label="Zwiń/rozwiń panel" title="Zwiń/rozwiń panel"></button>
+		</main>
+		<!------------------------
+		 @g FOOTER
+		------------------------->
+		<footer>2026 © Przemysław Fikas</footer>
+		<!------------------------
+		 @g MODALS
+		------------------------->
+		<div class="modal">
+			<div class="modal__container">
+				<button class="modal__close" aria-label="Close">&times;</button>
+				<div class="modal__content">
+					<!-- Modal content -->
+				</div>
+			</div>
+		</div>
+		<!-- @b Modal alert
+		------------------------->
+		<template id="modal-alert">
+			<h2 class="modal__title"></h2>
+			<p class="modal__text"></p>
+			<div class="modal__buttons">
+				<button class="modal__button">OK</button>
+			</div>
+		</template>
+		<!-- @b Modal confirm
+		------------------------->
+		<template id="modal-confirm">
+			<h2 class="modal__title"></h2>
+			<p class="modal__text"></p>
+			<div class="modal__buttons">
+				<button class="modal__button modal__button--cancel">Cancel</button>
+				<button class="modal__button modal__button--confirm">Confirm</button>
+			</div>
+		</template>
+		<!-- @b Modal point (new waypoint)
+		------------------------->
+		<template id="modal-point">
+			<h2 class="modal__title">Nowy punkt</h2>
+			<input type="text" class="modal__input" placeholder="Nazwa obiektu" maxlength="100" />
+			<div class="modal__buttons">
+				<button class="modal__button modal__button--cancel">Anuluj</button>
+				<button class="modal__button modal__button--save">Zapisz</button>
+			</div>
+		</template>
+		<!------------------------
+		 @g TEMPLATES
+		------------------------->
+		<!-- @b Map popup
+		------------------------->
+		<template id="map-popup">
+			<div class="map-popup">
+				<div class="map-popup__title"></div>
+				<div class="map-popup__actions">
+					<button class="map-popup__btn-edit">✎ Edytuj</button>
+					<button class="map-popup__btn-delete">× Usuń</button>
+				</div>
+			</div>
+		</template>
+		<!------------------------
+		 @g SCRIPT
+		------------------------->
+		<!-- Leaflet -->
+		<script src="vendor/leaflet/leaflet.js"></script>
+		<!-- App -->
+		<script src="script.js"></script>
+	</body>
+	<!--#endregion -->
+</html>
