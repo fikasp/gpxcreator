@@ -766,6 +766,8 @@ const $ = {
 		saveButton: DOM.getById('panel-save'),
 		clearButton: DOM.getById('panel-clear'),
 		toggleButton: DOM.getById('panel-toggle'),
+		importButton: DOM.get('#panel-import-btn'),
+		importInput: DOM.get('#panel-import-input'),
 	},
 	footer: {
 		element: DOM.get('footer'),
@@ -834,7 +836,7 @@ const Effects = {
 		Log.exit()
 	},
 
-	// @b Update panel visibility (collapsed/expanded)
+	// @b Update panel visibility
 	//------------------------
 	updatePanelVisibility: (collapsed) => {
 		if (collapsed) {
@@ -897,13 +899,71 @@ const Logic = {
 		STATE.waypoints = []
 		Panel.render()
 	},
+
+	// @b Import GPX
+	//------------------------
+	importGpx: (file) => {
+		Log.enter('importGpx', file.name)
+		
+		const reader = new FileReader()
+		
+		reader.onload = (e) => {
+			try {
+				const text = e.target.result
+				const parser = new DOMParser()
+				const xmlDoc = parser.parseFromString(text, 'text/xml')
+				
+				// Pobieramy wszystkie tagi <wpt> z pliku GPX
+				const waypoints = xmlDoc.getElementsByTagName('wpt')
+				
+				if (waypoints.length === 0) {
+					Modal.alert('Błąd importu', 'Wybrany plik nie zawiera prawidłowych punktów (tagów <wpt>).')
+					return
+				}
+
+				let importedCount = 0
+
+				// Iterujemy po każdym punkcie w XML
+				for (let i = 0; i < waypoints.length; i++) {
+					const wpt = waypoints[i]
+					const lat = parseFloat(wpt.getAttribute('lat'))
+					const lon = parseFloat(wpt.getAttribute('lon'))
+					
+					// Pobieramy zawartość tagu <name>, jeśli nie ma, dajemy nazwę domyślną
+					const nameNode = wpt.getElementsByTagName('name')[0]
+					const name = nameNode ? nameNode.textContent.trim() : `Punkt ${STATE.nextId}`
+
+					if (!isNaN(lat) && !isNaN(lon)) {
+						// Wykorzystujemy istniejącą u Ciebie funkcję dodawania punktu!
+						Logic.addWaypoint(lat, lon, name)
+						importedCount++
+					}
+				}
+
+				// Centrowanie mapy na ostatnim wczytanym punkcie, jeśli jakieś dodano
+				if (importedCount > 0 && STATE.waypoints.length > 0) {
+					const lastWp = STATE.waypoints[STATE.waypoints.length - 1]
+					MapView._instance.setView([lastWp.lat, lastWp.lon], 13)
+				}
+
+				Modal.alert('Sukces', `Pomyślnie wczytano ${importedCount} punktów z pliku.`)
+
+			} catch (err) {
+				console.error(err)
+				Modal.alert('Błąd', 'Wystąpił nieoczekiwany problem podczas przetwarzania pliku GPX.')
+			}
+		}
+
+		reader.readAsText(file)
+		Log.exit()
+	},
 }
 //#endregion
 //========================
 //#region @r HANDLERS
 //========================
 const Handlers = {
-	// @b Map click - open point modal
+	// @b Map click
 	//------------------------
 	mapClick: (e) => {
 		Log.enter('mapClick', e.latlng)
@@ -939,6 +999,23 @@ const Handlers = {
 		Effects.downloadGpx(STATE.waypoints)
 	},
 
+	// @b Import GPX click
+	//------------------------
+	importGpxClick: () => {
+		$.panel.importInput.click()
+	},
+
+	// @b Import File Changed
+	//------------------------
+	importFileChanged: (e) => {
+		const file = e.target.files[0]
+		if (!file) return
+
+		Logic.importGpx(file)
+		
+		$.panel.importInput.value = ''
+	},
+
 	// @b Clear all click
 	//------------------------
 	clearAllClick: () => {
@@ -963,6 +1040,8 @@ const Listeners = {
 		DOM.on($.panel.saveButton, 'click', Handlers.saveGpxClick)
 		DOM.on($.panel.clearButton, 'click', Handlers.clearAllClick)
 		DOM.on($.panel.toggleButton, 'click', Handlers.togglePanelClick)
+		DOM.on($.panel.importButton, 'click', Handlers.importGpxClick)
+		DOM.on($.panel.importInput, 'change', Handlers.importFileChanged)
 		Log.exit()
 	},
 }

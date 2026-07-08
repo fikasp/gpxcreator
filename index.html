@@ -39,8 +39,11 @@
 				</div>
 				<ul id="panel-list" class="panel__list"></ul>
 				<div class="panel__actions">
-					<button id="panel-clear" class="panel__button panel__button--clear">Wyczyść</button>
-					<button id="panel-save" class="panel__button panel__button--save">Zapisz GPX</button>
+					<input type="file" id="panel-import-input" accept=".gpx" style="display: none" />
+
+					<button id="panel-import-btn" class="panel__button panel__button--import">Wczytaj GPX</button>
+					<button id="panel-save" class="panel__button">Zapisz GPX</button>
+					<button id="panel-clear" class="panel__button">Wyczyść GPX</button>
 				</div>
 			</aside>
 			<button id="panel-toggle" class="panel__toggle" aria-label="Zwiń/rozwiń panel" title="Zwiń/rozwiń panel"></button>
