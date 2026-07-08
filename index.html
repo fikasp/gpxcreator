@@ -34,6 +34,7 @@
 			<div id="map" class="main__map"></div>
 			<!-- Panel -->
 			<aside id="panel" class="main__panel">
+				<div id="panel-resizer" class="panel__resizer"></div>
 				<div class="panel__header">
 					<h2 class="panel__title">Punkty (<span id="panel-count">0</span>)</h2>
 				</div>
@@ -41,9 +42,9 @@
 				<div class="panel__actions">
 					<input type="file" id="panel-import-input" accept=".gpx" style="display: none" />
 
-					<button id="panel-import-btn" class="panel__button panel__button--import">Wczytaj GPX</button>
-					<button id="panel-save" class="panel__button">Zapisz GPX</button>
-					<button id="panel-clear" class="panel__button">Wyczyść GPX</button>
+					<button id="panel-import-btn" class="panel__button panel__button--import">Wczytaj</button>
+					<button id="panel-save" class="panel__button panel__button--save">Zapisz</button>
+					<button id="panel-clear" class="panel__button panel__button--clear">Wyczyść</button>
 				</div>
 			</aside>
 			<button id="panel-toggle" class="panel__toggle" aria-label="Zwiń/rozwiń panel" title="Zwiń/rozwiń panel"></button>
@@ -78,15 +79,18 @@
 			<h2 class="modal__title"></h2>
 			<p class="modal__text"></p>
 			<div class="modal__buttons">
-				<button class="modal__button modal__button--cancel">Cancel</button>
-				<button class="modal__button modal__button--confirm">Confirm</button>
+				<button class="modal__button modal__button--cancel">Anuluj</button>
+				<button class="modal__button modal__button--confirm">Potwierdź</button>
 			</div>
 		</template>
 		<!-- @b Modal point (new waypoint)
 		------------------------->
 		<template id="modal-point">
 			<h2 class="modal__title">Nowy punkt</h2>
-			<input type="text" class="modal__input" placeholder="Nazwa obiektu" maxlength="100" />
+			<div class="modal__field">
+				<input type="text" class="modal__input" placeholder="Nazwa obiektu" maxlength="100" />
+				<textarea class="modal__textarea" placeholder="Opis obiektu (opcjonalnie)" rows="3"></textarea>
+			</div>
 			<div class="modal__buttons">
 				<button class="modal__button modal__button--cancel">Anuluj</button>
 				<button class="modal__button modal__button--save">Zapisz</button>

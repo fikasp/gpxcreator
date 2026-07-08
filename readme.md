@@ -29,16 +29,23 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⚙️ Technologie
 
-* **HTML5**
-* **CSS3**
+* **HTML5 + CSS3**
 * **JavaScript (ES6)**
 * **Leaflet** — biblioteka do interaktywnych map
 * **OpenStreetMap** — źródło kafelków mapowych
 
 ## ⏱️ Historia wersji
 
-* **`v1.0.0`** – Aplikacja do tworzenia plików GPX na bazie punktów z mapy OpenStreetMap.
-* **`v0.0.0`** – Wersja początkowa: podstawowy szablon VanillaJS.
+
+* **v1.1 (2026-07-08):** Dodanie nowych funkcjonalności.
+  * Dodano import plików GPX z możliwością wczytania punktów z dysku.
+  * Dodano automatyczny zapis punktów w `localStorage`.
+  * Dodano przeciąganie szerokości panelu.
+
+* **v1.0 (2026-07-07):** Pierwsza publiczna wersja aplikacji.
+  * Aplikacja do tworzenia plików GPX na bazie punktów z mapy OpenStreetMap.
+  * Wersja początkowa oparta na szablonie Vanilla JS.
+
 
 ## ✉️ Kontakt
 

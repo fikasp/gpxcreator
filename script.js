@@ -267,7 +267,15 @@ const DOM = {
 	setStyle: (element, property, value) => {
 		if (!element) return
 		if (typeof property === 'object') {
-			Object.entries(property).forEach(([key, val]) => (element.style[key] = val))
+			Object.entries(property).forEach(([key, val]) => {
+				if (key.startsWith('--')) {
+					element.style.setProperty(key, val)
+				} else {
+					element.style[key] = val
+				}
+			})
+		} else if (property.startsWith('--')) {
+			element.style.setProperty(property, value)
 		} else {
 			element.style[property] = value
 		}
@@ -569,40 +577,43 @@ const Modal = {
 
 	// @b Create point modal
 	//------------------------
-	point: (onSave, initialName = '', title = 'Nowy punkt') => {
+	point: (onSave, initialName = '', initialDesc = '', title = 'Nowy punkt') => {
 		const content = DOM.getTemplate('modal-point')
 		if (!content) return
 
-		// Dostosowanie tytułu i wartości początkowej
 		DOM.setText(content.querySelector('.modal__title'), title)
-		const input = content.querySelector('.modal__input')
-		if (input && initialName) {
-			DOM.setValue(input, initialName)
-		}
+
+		const inputName = content.querySelector('.modal__input')
+		const inputDesc = content.querySelector('.modal__textarea')
+
+		if (inputName) DOM.setValue(inputName, initialName)
+		if (inputDesc) DOM.setValue(inputDesc, initialDesc)
 
 		Modal.open(content)
 
 		const cancelBtn = DOM.get('.modal__button--cancel', Modal.$.content)
 		const saveBtn = DOM.get('.modal__button--save', Modal.$.content)
 
-		const focusInput = () => input?.focus({ preventScroll: true })
+		const focusInput = () => inputName?.focus({ preventScroll: true })
 		DOM.on(Modal.$.container, 'transitionend', focusInput, { once: true })
 		setTimeout(focusInput, 350)
 
 		DOM.on(cancelBtn, 'click', Modal.close)
 
 		const save = () => {
-			const name = DOM.getValue(input).trim()
+			const name = DOM.getValue(inputName).trim()
+			const desc = inputDesc ? DOM.getValue(inputDesc).trim() : ''
+
 			if (!name) {
-				DOM.setStyle(input, 'outline', '1px solid red')
+				DOM.setStyle(inputName, 'outline', '1px solid red')
 				return
 			}
 			Modal.close()
-			onSave(name)
+			onSave(name, desc) // Zwracamy dwie wartości
 		}
 
 		DOM.on(saveBtn, 'click', save)
-		DOM.on(input, 'keydown', (e) => {
+		DOM.on(inputName, 'keydown', (e) => {
 			if (e.key === 'Enter') save()
 		})
 	},
@@ -630,33 +641,39 @@ const MapView = {
 		Log.exit()
 	},
 
-	_createPopupElement: (id, name) => {
+	_createPopupElement: (id, name, desc = '') => {
 		const fragment = DOM.getTemplate('map-popup')
 		if (!fragment) return name
 
 		const titleEl = DOM.get('.map-popup__title', fragment)
 		DOM.setText(titleEl, name)
 
+		// Dynamicznie dodajemy opis pod tytułem, jeśli istnieje
+		if (desc) {
+			const descEl = DOM.create({
+				type: 'div',
+				classes: ['map-popup__desc'],
+				children: desc,
+			})
+			// Wstawiamy opis przed przyciskami akcji
+			const actionsEl = DOM.get('.map-popup__actions', fragment)
+			actionsEl.parentNode.insertBefore(descEl, actionsEl)
+		}
+
 		const editBtn = DOM.get('.map-popup__btn-edit', fragment)
 		const deleteBtn = DOM.get('.map-popup__btn-delete', fragment)
 
-		if (editBtn) {
-			DOM.on(editBtn, 'click', () => Handlers.editWaypointClick(id))
-		}
-		if (deleteBtn) {
-			DOM.on(deleteBtn, 'click', () => Handlers.deleteWaypointClick(id))
-		}
+		if (editBtn) DOM.on(editBtn, 'click', () => Handlers.editWaypointClick(id))
+		if (deleteBtn) DOM.on(deleteBtn, 'click', () => Handlers.deleteWaypointClick(id))
 
 		return fragment.firstElementChild
 	},
 
-	// @b Add marker
+	/// @b Add marker
 	//------------------------
-	addMarker: (id, lat, lon, name) => {
+	addMarker: (id, lat, lon, name, desc) => {
 		const marker = L.marker([lat, lon]).addTo(MapView._instance)
-
-		const popupElement = MapView._createPopupElement(id, name)
-
+		const popupElement = MapView._createPopupElement(id, name, desc)
 		marker.bindPopup(popupElement)
 		return marker
 	},
@@ -719,7 +736,7 @@ const Panel = {
 //========================
 const CONFIG = {
 	map: {
-		center: [52.0, 19.0], // domyślny widok - centrum Polski
+		center: [52.0, 19.0],
 		zoom: 6,
 		maxZoom: 19,
 		tileUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -730,21 +747,32 @@ const CONFIG = {
 		creator: 'GPX Creator',
 		coordPrecision: 7,
 	},
+	panel: {
+		minWidth: 300,
+		maxWidth: 900,
+		minMapWidth: 0,
+	},
 	storage: {
 		panelCollapsed: 'panel-collapsed',
+		panelWidth: 'panel-width',
+		waypoints: 'waypoints',
 	},
 	defaults: {
 		panelCollapsed: true,
+		panelWidth: 300,
 	},
 }
+
 //#endregion
 //========================
-//#region @r STATE
+//#region @r APP STATE
 //========================
 const STATE = {
-	waypoints: [], // { id, lat, lon, name, marker }
+	waypoints: [],
 	nextId: 1,
 	panelCollapsed: Storage.get(CONFIG.storage.panelCollapsed) ?? CONFIG.defaults.panelCollapsed,
+	panelWidth: Storage.get(CONFIG.storage.panelWidth) ?? CONFIG.defaults.panelWidth,
+	isDragging: false,
 }
 //#endregion
 //========================
@@ -768,6 +796,7 @@ const $ = {
 		toggleButton: DOM.getById('panel-toggle'),
 		importButton: DOM.get('#panel-import-btn'),
 		importInput: DOM.get('#panel-import-input'),
+		resizer: DOM.getById('panel-resizer'),
 	},
 	footer: {
 		element: DOM.get('footer'),
@@ -775,7 +804,7 @@ const $ = {
 }
 //#endregion
 //========================
-//#region @r PURE FUNCTIONS
+//#region @r PURE
 //========================
 const Pure = {
 	// @b Escape XML special characters
@@ -785,19 +814,34 @@ const Pure = {
 	// @b Build GPX xml string
 	//------------------------
 	buildGpx: (waypoints) => {
-		const points = waypoints
-			.map(
-				(wp) =>
-					`\t<wpt lat="${wp.lat.toFixed(CONFIG.gpx.coordPrecision)}" lon="${wp.lon.toFixed(CONFIG.gpx.coordPrecision)}">\n\t\t<name>${Pure.escapeXml(wp.name)}</name>\n\t</wpt>`,
-			)
-			.join('\n')
+		Log.enter('buildGpx')
 
-		return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="${CONFIG.gpx.creator}" xmlns="http://www.topografix.com/GPX/1/1">\n${points}\n</gpx>`
+		let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n'
+		gpx += '<gpx version="1.1" creator="GPX Creator" xmlns="http://www.topografix.com/GPX/1/1">\n'
+
+		waypoints.forEach((wp) => {
+			gpx += `\t<wpt lat="${wp.lat.toFixed(CONFIG.gpx.coordPrecision)}" lon="${wp.lon.toFixed(CONFIG.gpx.coordPrecision)}">\n`
+			gpx += `\t\t<name>${Pure.escapeXml(wp.name)}</name>\n`
+
+			if (wp.desc) {
+				gpx += `\t\t<desc>${Pure.escapeXml(wp.desc)}</desc>\n`
+			}
+
+			gpx += `\t</wpt>\n`
+		})
+
+		gpx += '</gpx>'
+
+		Log.exit()
+		return gpx
 	},
+	// @b Get max allowed panel width
+	//------------------------
+	getMaxPanelWidth: () => Math.min(CONFIG.panel.maxWidth, window.innerWidth - CONFIG.panel.minMapWidth),
 }
 //#endregion
 //========================
-//#region @r SIDE EFFECTS
+//#region @r EFFECTS
 //========================
 const Effects = {
 	// @b Update favicon
@@ -836,48 +880,66 @@ const Effects = {
 		Log.exit()
 	},
 
+	// @b Save waypoints to storage
+	//------------------------
+	saveWaypoints: () => {
+		const data = STATE.waypoints.map((wp) => ({ id: wp.id, lat: wp.lat, lon: wp.lon, name: wp.name, desc: wp.desc }))
+		Storage.set(CONFIG.storage.waypoints, data)
+	},
+
 	// @b Update panel visibility
 	//------------------------
-	updatePanelVisibility: (collapsed) => {
-		if (collapsed) {
+	updatePanelVisibility: () => {
+		if (STATE.panelCollapsed) {
 			DOM.removeClass($.panel.element, 'main__panel--expanded')
 		} else {
 			DOM.addClass($.panel.element, 'main__panel--expanded')
 		}
-		Storage.set(CONFIG.storage.panelCollapsed, collapsed)
+		Storage.set(CONFIG.storage.panelCollapsed, STATE.panelCollapsed)
+	},
+
+	// @b Apply panel width
+	//------------------------
+	applyPanelWidth: () => {
+		DOM.setStyle($.panel.element, '--panel-min-width', `${CONFIG.panel.minWidth}px`)
+		DOM.setStyle($.panel.element, '--panel-max-width', `${CONFIG.panel.maxWidth}px`)
+		DOM.setStyle($.panel.element, '--panel-width', `${STATE.panelWidth}px`)
 	},
 }
 //#endregion
 //========================
-//#region @r MAIN LOGIC
+//#region @r LOGIC
 //========================
 const Logic = {
 	// @b Add waypoint
 	//------------------------
-	addWaypoint: (lat, lon, name) => {
-		Log.enter(name)
+	addWaypoint: (lat, lon, name, desc = '') => {
+		Log.enter(name, desc)
 		const id = STATE.nextId++
-		const marker = MapView.addMarker(id, lat, lon, name)
-		STATE.waypoints.push({ id, lat, lon, name, marker })
+		const marker = MapView.addMarker(id, lat, lon, name, desc)
+		STATE.waypoints.push({ id, lat, lon, name, desc, marker })
 		Panel.render()
+		Effects.saveWaypoints()
 		Log.exit()
 	},
 
 	// @b Edit waypoint
 	//------------------------
-	editWaypoint: (id, newName) => {
-		Log.enter(id, newName)
+	editWaypoint: (id, newName, newDesc) => {
+		Log.enter(id, newName, newDesc)
 		const waypoint = STATE.waypoints.find((wp) => wp.id === id)
 		if (!waypoint) return
 
 		waypoint.name = newName
+		waypoint.desc = newDesc
 
 		if (waypoint.marker) {
-			const updatedPopupElement = MapView._createPopupElement(id, newName)
+			const updatedPopupElement = MapView._createPopupElement(id, newName, newDesc)
 			waypoint.marker.setPopupContent(updatedPopupElement)
 		}
 
 		Panel.render()
+		Effects.saveWaypoints()
 		Log.exit()
 	},
 
@@ -889,6 +951,7 @@ const Logic = {
 
 		MapView.removeMarker(waypoint.marker)
 		STATE.waypoints = STATE.waypoints.filter((wp) => wp.id !== id)
+		Effects.saveWaypoints()
 		Panel.render()
 	},
 
@@ -897,25 +960,39 @@ const Logic = {
 	clearWaypoints: () => {
 		STATE.waypoints.forEach((wp) => MapView.removeMarker(wp.marker))
 		STATE.waypoints = []
+		Effects.saveWaypoints()
 		Panel.render()
 	},
 
-	// @b Import GPX
+	// @b Load waypoints from storage
+	//------------------------
+	loadWaypoints: () => {
+		Log.enter('loadWaypoints')
+		const saved = Storage.get(CONFIG.storage.waypoints, [])
+
+		saved.forEach((wp) => {
+			const marker = MapView.addMarker(wp.id, wp.lat, wp.lon, wp.name, wp.desc)
+			STATE.waypoints.push({ ...wp, marker })
+		})
+
+		if (saved.length > 0) {
+			STATE.nextId = Math.max(...saved.map((wp) => wp.id)) + 1
+		}
+		Log.exit()
+	},
+
+	// @b Import GPX from file
 	//------------------------
 	importGpx: (file) => {
 		Log.enter('importGpx', file.name)
-		
 		const reader = new FileReader()
-		
 		reader.onload = (e) => {
 			try {
 				const text = e.target.result
 				const parser = new DOMParser()
 				const xmlDoc = parser.parseFromString(text, 'text/xml')
-				
-				// Pobieramy wszystkie tagi <wpt> z pliku GPX
 				const waypoints = xmlDoc.getElementsByTagName('wpt')
-				
+
 				if (waypoints.length === 0) {
 					Modal.alert('Błąd importu', 'Wybrany plik nie zawiera prawidłowych punktów (tagów <wpt>).')
 					return
@@ -923,39 +1000,43 @@ const Logic = {
 
 				let importedCount = 0
 
-				// Iterujemy po każdym punkcie w XML
 				for (let i = 0; i < waypoints.length; i++) {
 					const wpt = waypoints[i]
 					const lat = parseFloat(wpt.getAttribute('lat'))
 					const lon = parseFloat(wpt.getAttribute('lon'))
-					
-					// Pobieramy zawartość tagu <name>, jeśli nie ma, dajemy nazwę domyślną
+
 					const nameNode = wpt.getElementsByTagName('name')[0]
 					const name = nameNode ? nameNode.textContent.trim() : `Punkt ${STATE.nextId}`
 
+					// NOWOŚĆ: Wyciąganie tagu <desc> podczas importu pliku GPX
+					const descNode = wpt.getElementsByTagName('desc')[0]
+					const desc = descNode ? descNode.textContent.trim() : ''
+
 					if (!isNaN(lat) && !isNaN(lon)) {
-						// Wykorzystujemy istniejącą u Ciebie funkcję dodawania punktu!
-						Logic.addWaypoint(lat, lon, name)
+						Logic.addWaypoint(lat, lon, name, desc)
 						importedCount++
 					}
 				}
 
-				// Centrowanie mapy na ostatnim wczytanym punkcie, jeśli jakieś dodano
 				if (importedCount > 0 && STATE.waypoints.length > 0) {
 					const lastWp = STATE.waypoints[STATE.waypoints.length - 1]
 					MapView._instance.setView([lastWp.lat, lastWp.lon], 13)
 				}
-
 				Modal.alert('Sukces', `Pomyślnie wczytano ${importedCount} punktów z pliku.`)
-
 			} catch (err) {
 				console.error(err)
-				Modal.alert('Błąd', 'Wystąpił nieoczekiwany problem podczas przetwarzania pliku GPX.')
+				Modal.alert('Błąd', 'Wystąpił problem podczas przetwarzania pliku GPX.')
 			}
 		}
-
 		reader.readAsText(file)
 		Log.exit()
+	},
+	// @b Clamp panel width
+	//------------------------
+	clampPanelWidth: () => {
+		const maxWidth = Pure.getMaxPanelWidth()
+		STATE.panelWidth = Math.min(STATE.panelWidth, maxWidth)
+		STATE.panelWidth = Math.max(STATE.panelWidth, CONFIG.panel.minWidth)
 	},
 }
 //#endregion
@@ -967,8 +1048,14 @@ const Handlers = {
 	//------------------------
 	mapClick: (e) => {
 		Log.enter('mapClick', e.latlng)
-		const { lat, lng } = e.latlng
-		Modal.point((name) => Logic.addWaypoint(lat, lng, name))
+		const { lat, lng: lon } = e.latlng
+
+		Modal.point(
+			(name, desc) => Logic.addWaypoint(lat, lon, name, desc),
+			'', // początkowa nazwa pusta
+			'', // początkowy opis pusty
+			'Nowy punkt',
+		)
 		Log.exit()
 	},
 
@@ -985,7 +1072,12 @@ const Handlers = {
 		const waypoint = STATE.waypoints.find((wp) => wp.id === id)
 		if (!waypoint) return
 
-		Modal.point((newName) => Logic.editWaypoint(id, newName), waypoint.name, 'Edytuj punkt')
+		Modal.point(
+			(newName, newDesc) => Logic.editWaypoint(id, newName, newDesc),
+			waypoint.name,
+			waypoint.desc || '',
+			'Edytuj punkt',
+		)
 		Log.exit()
 	},
 
@@ -1012,7 +1104,7 @@ const Handlers = {
 		if (!file) return
 
 		Logic.importGpx(file)
-		
+
 		$.panel.importInput.value = ''
 	},
 
@@ -1027,7 +1119,66 @@ const Handlers = {
 	//------------------------
 	togglePanelClick: () => {
 		STATE.panelCollapsed = !STATE.panelCollapsed
-		Effects.updatePanelVisibility(STATE.panelCollapsed)
+		Effects.updatePanelVisibility()
+	},
+
+	// @b Panel Resize Start
+	//------------------------
+	resizerMouseDown: (e) => {
+		Log.enter('resizerMouseDown')
+		e.preventDefault()
+		STATE.isDragging = true
+
+		DOM.addClass($.panel.resizer, 'panel__resizer--dragging')
+		Log.exit()
+	},
+
+	// @b Panel Resize Moving
+	//------------------------
+	resizerMouseMove: (e) => {
+		if (!STATE.isDragging) return
+
+		let newWidth = window.innerWidth - e.clientX
+		const maxWidth = Pure.getMaxPanelWidth()
+
+		if (newWidth < CONFIG.panel.minWidth) newWidth = CONFIG.panel.minWidth
+		if (newWidth > maxWidth) newWidth = maxWidth
+
+		STATE.panelWidth = newWidth
+		DOM.setStyle($.panel.element, '--panel-width', `${newWidth}px`)
+
+		if (MapView._instance) {
+			MapView._instance.invalidateSize({ animate: false })
+		}
+	},
+
+	// @b Panel Resize End
+	//------------------------
+	resizerMouseUp: () => {
+		if (!STATE.isDragging) return
+		Log.enter('resizerMouseUp')
+
+		STATE.isDragging = false
+		DOM.removeClass($.panel.resizer, 'panel__resizer--dragging')
+		Storage.set(CONFIG.storage.panelWidth, STATE.panelWidth)
+
+		Log.exit()
+	},
+
+	// @b Window resize
+	//------------------------
+	windowResize: () => {
+		const previousWidth = STATE.panelWidth
+		Logic.clampPanelWidth()
+
+		if (STATE.panelWidth !== previousWidth) {
+			Effects.applyPanelWidth()
+			Storage.set(CONFIG.storage.panelWidth, STATE.panelWidth)
+		}
+
+		if (MapView._instance) {
+			MapView._instance.invalidateSize({ animate: false })
+		}
 	},
 }
 //#endregion
@@ -1042,6 +1193,10 @@ const Listeners = {
 		DOM.on($.panel.toggleButton, 'click', Handlers.togglePanelClick)
 		DOM.on($.panel.importButton, 'click', Handlers.importGpxClick)
 		DOM.on($.panel.importInput, 'change', Handlers.importFileChanged)
+		DOM.on($.panel.resizer, 'mousedown', Handlers.resizerMouseDown)
+		DOM.on(window, 'resize', Tools.debounce(Handlers.windowResize, 150))
+		DOM.on(document, 'mousemove', Handlers.resizerMouseMove)
+		DOM.on(document, 'mouseup', Handlers.resizerMouseUp)
 		Log.exit()
 	},
 }
@@ -1056,9 +1211,12 @@ const App = {
 		Log.enter('App')
 		Modal.init()
 		MapView.init()
+		Logic.loadWaypoints()
+		Logic.clampPanelWidth()
 		Listeners.init()
 		Panel.render()
-		Effects.updatePanelVisibility(STATE.panelCollapsed)
+		Effects.applyPanelWidth()
+		Effects.updatePanelVisibility()
 		Effects.updateFavicon()
 		Log.exit()
 		Log.end()
