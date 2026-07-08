@@ -74,7 +74,6 @@
 	font-weight: 700;
 	font-style: normal;
 }
-
 /*#endregion*/
 /*========================*/
 /*#region @r BODY */
@@ -125,6 +124,7 @@ main {
 #map .leaflet-grab,
 #map.leaflet-dragging .leaflet-grab {
 	cursor: default !important;
+	font-family: Play !important;
 }
 .leaflet-control-zoom-in,
 .leaflet-control-zoom-out {
@@ -133,17 +133,26 @@ main {
 .leaflet-control-attribution {
 	display: none;
 }
+/* @b Leaflet popup */
+/*------------------------*/
+
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
-	opacity: 0.8;
-	color: #fff;
+	background: var(--gray2);
+	color: var(--white);
 	font-family: verdana;
-	background-color: #222;
-	transition: opacity 0.3s ease;
+	box-shadow: var(--shadow);
 	border-radius: 6px;
+	transition: opacity 0.3s ease;
+	opacity: 0.9;
 }
-/* @b Map Popup */
-/*------------------------*/
+.leaflet-popup-close-button {
+	color: var(--white) !important;
+}
+/*#endregion*/
+/*========================*/
+/*#region @r MAP POPUP */
+/*========================*/
 .map-popup {
 	display: flex;
 	flex-direction: column;
@@ -167,6 +176,12 @@ main {
 	margin-bottom: 4px;
 }
 
+.map-popup__desc:empty {
+	display: none;
+}
+
+/* @b Actions (view mode) */
+/*------------------------*/
 .map-popup__actions {
 	display: flex;
 	justify-content: center;
@@ -199,15 +214,62 @@ main {
 	color: var(--red-hover);
 }
 
-.leaflet-popup-content-wrapper,
-.leaflet-popup-tip {
-	background: var(--gray2) !important;
-	color: var(--white) !important;
-	box-shadow: var(--shadow);
+/* @b Form (add / edit mode) */
+/*------------------------*/
+.map-popup--form {
+	min-width: 200px;
 }
-.leaflet-popup-close-button {
-	color: var(--white) !important;
+
+.map-popup__input,
+.map-popup__textarea {
+	width: 100%;
+	background: var(--gray3);
+	color: var(--white);
+	padding: 8px;
+	border-radius: 4px;
+	font-family: inherit;
+	font-size: 0.8rem;
 }
+
+.map-popup__input {
+	margin-top: 5px;
+}
+
+.map-popup__textarea {
+	resize: vertical;
+	min-height: 100px;
+	line-height: 1.2;
+}
+
+.map-popup__input:focus,
+.map-popup__textarea:focus {
+	outline: 1px solid var(--blue);
+}
+
+.map-popup__btn-cancel,
+.map-popup__btn-save {
+	background: transparent;
+	cursor: pointer;
+	font-size: 0.8rem;
+	padding: 4px 8px;
+	border: 1px solid var(--gray4);
+	border-radius: 4px;
+	color: var(--white);
+	transition: var(--transition);
+}
+
+.map-popup__btn-save {
+	border-color: var(--blue);
+}
+
+.map-popup__btn-save:hover {
+	background: var(--blue);
+}
+
+.map-popup__btn-cancel:hover {
+	background: var(--gray3);
+}
+/*#endregion*/
 /*========================*/
 /*#region @r PANEL */
 /*========================*/
@@ -230,7 +292,19 @@ main {
 	z-index: 400;
 }
 
-/* @b Panel Resizer */
+.main__panel--expanded {
+	transform: translateX(0);
+}
+
+.main__panel--expanded ~ .panel__toggle::before {
+	content: '›';
+}
+
+.no-transition {
+	transition: none !important;
+}
+
+/* @b Resizer */
 /*------------------------*/
 .panel__resizer {
 	position: absolute;
@@ -243,25 +317,12 @@ main {
 	transition: background 0.2s ease;
 }
 
-/* Subtelne podświetlenie drążka, kiedy użytkownik najeżdża myszką */
 .panel__resizer:hover {
 	background: rgba(70, 130, 180, 0.4); /* steelblue z przezroczystością */
 }
 
-/* Klasa aktywowana podczas przeciągania (żeby podświetlenie nie znikało przy szybkim ruchu) */
 .panel__resizer--dragging {
 	background: steelblue !important;
-}
-
-/* @b Stan otwarty */
-.main__panel--expanded {
-	transform: translateX(0);
-}
-.main__panel--expanded ~ .panel__toggle::before {
-	content: '›';
-}
-.no-transition {
-	transition: none !important;
 }
 
 /* @b Header */
@@ -273,6 +334,7 @@ main {
 	border-bottom: 1px solid var(--gray4);
 	padding-bottom: 10px;
 }
+
 .panel__title {
 	font-size: 1.1rem;
 	font-weight: bold;
@@ -314,11 +376,20 @@ main {
 	gap: 10px;
 }
 
+.panel__item--dragging {
+	opacity: 0.4;
+}
+
+.panel__item--over {
+	border-top: 2px solid var(--blue);
+}
+
 .panel__item-main {
 	display: flex;
 	align-items: center;
 	gap: 8px;
 	overflow: hidden;
+	cursor: pointer;
 	flex: 1;
 }
 
@@ -336,6 +407,7 @@ main {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+	font-size: 0.95rem;
 	min-width: 0;
 }
 
@@ -343,43 +415,33 @@ main {
 	flex-shrink: 0;
 }
 
-.panel__item--dragging {
-	opacity: 0.4;
-}
-
-.panel__item--over {
-	border-top: 2px solid var(--blue);
-}
-
+.panel__item-edit,
 .panel__item-delete {
 	background: transparent;
 	color: var(--white);
 	cursor: pointer;
-	font-size: 1.2rem;
 	line-height: 1;
 	padding: 0 5px;
 	transition: var(--transition);
-}
-
-.panel__item-delete:hover {
-	color: var(--red-hover);
 }
 
 .panel__item-edit {
-	background: transparent;
-	color: var(--white);
-	cursor: pointer;
 	font-size: 1rem;
-	line-height: 1;
-	padding: 0 5px;
-	transition: var(--transition);
 }
 
 .panel__item-edit:hover {
 	color: var(--blue-hover);
 }
 
-/* @b Actions */
+.panel__item-delete {
+	font-size: 1.2rem;
+}
+
+.panel__item-delete:hover {
+	color: var(--red-hover);
+}
+
+/* @b Actions (footer buttons) */
 /*------------------------*/
 .panel__actions {
 	display: flex;
@@ -437,10 +499,9 @@ main {
 
 .panel__toggle::before {
 	content: '‹';
-	font-size: 1.5rem;
+	font-size: 1.6rem;
 	font-weight: bold;
 }
-
 /*#endregion*/
 /*========================*/
 /*#region @r FOOTER */
@@ -556,6 +617,20 @@ footer {
 	width: 100%;
 }
 
+/* @b Input / textarea */
+/*------------------------*/
+.modal__input {
+	width: 100%;
+	background: var(--gray3);
+	color: var(--white);
+	padding: 10px;
+	border-radius: 5px;
+}
+
+.modal__input:focus {
+	outline: 1px solid var(--gray4);
+}
+
 .modal__textarea {
 	width: 100%;
 	min-height: 200px;
@@ -580,6 +655,7 @@ footer {
 	justify-content: center;
 	gap: 10px;
 }
+
 .modal__button {
 	padding: 10px;
 	background-color: var(--gray3);
@@ -594,19 +670,4 @@ footer {
 .modal__button:hover {
 	background-color: var(--gray4);
 }
-
-/* @b Input */
-/*------------------------*/
-.modal__input {
-	width: 100%;
-	background: var(--gray3);
-	color: var(--white);
-	padding: 10px;
-	border-radius: 5px;
-}
-
-.modal__input:focus {
-	outline: 1px solid var(--gray4);
-}
-
 /*#endregion*/

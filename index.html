@@ -84,19 +84,6 @@
 				<button class="modal__button modal__button--confirm">Potwierdź</button>
 			</div>
 		</template>
-		<!-- @b Modal point (new waypoint)
-		------------------------->
-		<template id="modal-point">
-			<h2 class="modal__title">Nowy punkt</h2>
-			<div class="modal__field">
-				<input type="text" class="modal__input" placeholder="Nazwa obiektu" maxlength="100" />
-				<textarea class="modal__textarea" placeholder="Opis obiektu (opcjonalnie)" rows="3"></textarea>
-			</div>
-			<div class="modal__buttons">
-				<button class="modal__button modal__button--cancel">Anuluj</button>
-				<button class="modal__button modal__button--save">Zapisz</button>
-			</div>
-		</template>
 		<!------------------------
 		 @g TEMPLATES
 		------------------------->
@@ -105,9 +92,22 @@
 		<template id="map-popup">
 			<div class="map-popup">
 				<div class="map-popup__title"></div>
+				<div class="map-popup__desc"></div>
 				<div class="map-popup__actions">
 					<button class="map-popup__btn-edit">✎ Edytuj</button>
 					<button class="map-popup__btn-delete">× Usuń</button>
+				</div>
+			</div>
+		</template>
+		<!-- @b Map popup form
+		------------------------->
+		<template id="map-popup-form">
+			<div class="map-popup map-popup--form">
+				<input type="text" class="map-popup__input" placeholder="Nazwa obiektu" maxlength="100" />
+				<textarea class="map-popup__textarea" placeholder="Opis (opcjonalnie)" rows="2"></textarea>
+				<div class="map-popup__actions">
+					<button class="map-popup__btn-cancel">Anuluj</button>
+					<button class="map-popup__btn-save">Zapisz</button>
 				</div>
 			</div>
 		</template>

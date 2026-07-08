@@ -10,7 +10,7 @@ const Log = {
 	config: {
 		active: true,
 		maxDepth: Infinity,
-		location: { active: true, style: 'font-size: 0.9em; font-style: italic; color: dimgray;' },
+		location: { active: false, style: 'font-size: 0.9em; font-style: italic; color: dimgray;' },
 		divider: { active: false, style: 'font-size: 1.1em; font-weight: bold;', char: '-', length: 12 },
 		group: { active: true, style: 'font-size: 1.2em; font-weight: bold;', collapsed: false },
 		depth: { active: true, char: ' ' },
@@ -647,40 +647,70 @@ const MapView = {
 		Log.exit()
 	},
 
-	_createPopupElement: (id, name, desc = '') => {
+	// @b Create view popup
+	//------------------------
+	createViewPopup: (id, name, desc) => {
 		const fragment = DOM.getTemplate('map-popup')
-		if (!fragment) return name
+		const wrapper = DOM.create({ type: 'div' })
+		wrapper.appendChild(fragment)
 
-		const titleEl = DOM.get('.map-popup__title', fragment)
-		DOM.setText(titleEl, name)
+		DOM.setText(DOM.get('.map-popup__title', wrapper), name)
+		DOM.setText(DOM.get('.map-popup__desc', wrapper), desc || '')
 
-		// Dynamicznie dodajemy opis pod tytułem, jeśli istnieje
-		if (desc) {
-			const descEl = DOM.create({
-				type: 'div',
-				classes: ['map-popup__desc'],
-				children: desc,
-			})
-			// Wstawiamy opis przed przyciskami akcji
-			const actionsEl = DOM.get('.map-popup__actions', fragment)
-			actionsEl.parentNode.insertBefore(descEl, actionsEl)
-		}
+		DOM.on(DOM.get('.map-popup__btn-edit', wrapper), 'click', (e) => {
+			L.DomEvent.stop(e)
+			Handlers.editWaypointClick(id)
+		})
+		DOM.on(DOM.get('.map-popup__btn-delete', wrapper), 'click', (e) => {
+			L.DomEvent.stop(e)
+			Handlers.deleteWaypointClick(id)
+		})
 
-		const editBtn = DOM.get('.map-popup__btn-edit', fragment)
-		const deleteBtn = DOM.get('.map-popup__btn-delete', fragment)
-
-		if (editBtn) DOM.on(editBtn, 'click', () => Handlers.editWaypointClick(id))
-		if (deleteBtn) DOM.on(deleteBtn, 'click', () => Handlers.deleteWaypointClick(id))
-
-		return fragment.firstElementChild
+		return wrapper
 	},
 
-	/// @b Add marker
+	// @b Create form popup
+	//------------------------
+	createFormPopup: (name, desc, onSave, onCancel) => {
+		const fragment = DOM.getTemplate('map-popup-form')
+		const wrapper = DOM.create({ type: 'div' })
+		wrapper.appendChild(fragment)
+
+		const input = DOM.get('.map-popup__input', wrapper)
+		const textarea = DOM.get('.map-popup__textarea', wrapper)
+
+		DOM.setValue(input, name)
+		DOM.setValue(textarea, desc)
+
+		DOM.on(DOM.get('.map-popup__btn-cancel', wrapper), 'click', (e) => {
+			L.DomEvent.stop(e)
+			onCancel()
+		})
+
+		const save = (e) => {
+			if (e) L.DomEvent.stop(e)
+			const newName = DOM.getValue(input).trim()
+			if (!newName) {
+				DOM.setStyle(input, 'outline', '1px solid var(--red)')
+				return
+			}
+			onSave(newName, DOM.getValue(textarea).trim())
+		}
+
+		DOM.on(DOM.get('.map-popup__btn-save', wrapper), 'click', save)
+		DOM.on(input, 'keydown', (e) => {
+			if (e.key === 'Enter') save(e)
+		})
+
+		setTimeout(() => input?.focus(), 50)
+		return wrapper
+	},
+
+	// @b Add marke
 	//------------------------
 	addMarker: (id, lat, lon, name, desc) => {
 		const marker = L.marker([lat, lon]).addTo(MapView._instance)
-		const popupElement = MapView._createPopupElement(id, name, desc)
-		marker.bindPopup(popupElement)
+		marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false })
 		return marker
 	},
 
@@ -688,6 +718,128 @@ const MapView = {
 	//------------------------
 	removeMarker: (marker) => {
 		if (marker) MapView._instance.removeLayer(marker)
+	},
+
+	// @b Focus marker
+	//------------------------
+	focusMarker: (marker) => {
+		const panelWidth = STATE.panelCollapsed ? 0 : STATE.panelWidth
+
+		MapView._instance.panInside(marker.getLatLng(), {
+			paddingTopLeft: [20, 20],
+			paddingBottomRight: [panelWidth + 20, 20],
+		})
+
+		marker.openPopup()
+	},
+
+	// @b Enable/disable adding
+	//------------------------
+	disableAdding: () => {
+		MapView._instance.off('click', Handlers.mapClick)
+	},
+
+	enableAdding: () => {
+		MapView._instance.on('click', Handlers.mapClick)
+	},
+
+	// @b Open add popup
+	//------------------------
+	openAddPopup: (lat, lon, onSave) => {
+		Log.enter()
+		MapView.disableAdding()
+
+		const marker = L.marker([lat, lon]).addTo(MapView._instance)
+		marker._saved = false
+
+		const cleanup = () => {
+			MapView.enableAdding()
+			if (MapView._instance.hasLayer(marker)) {
+				MapView._instance.removeLayer(marker)
+			}
+		}
+
+		const save = (name, desc) => {
+			marker._saved = true
+			MapView.enableAdding()
+			marker.unbindPopup()
+			marker.bindPopup(MapView.createViewPopup(name, desc), { closeButton: false, closeOnClick: true }).openPopup()
+			onSave(marker, name, desc)
+		}
+
+		const content = MapView.createFormPopup('', '', save, cleanup)
+
+		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+
+		marker.on('popupclose', (e) => {
+			if (!marker._saved) {
+				setTimeout(() => {
+					cleanup()
+				}, 0)
+			}
+		})
+		Log.exit()
+	},
+
+	/// @b Open edit popup
+	//------------------------
+	openEditPopup: (marker, id, name, desc, onSave) => {
+		Log.enter()
+		MapView.disableAdding()
+		const originalLatLng = marker.getLatLng()
+		let currentLatLng = marker.getLatLng()
+
+		// 1. Zamykamy i odpinamy stary popup widoku, aby zapobiec nakładaniu się warstw
+		marker.closePopup()
+		marker.unbindPopup()
+
+		// Włączamy możliwość przeciągania znacznika
+		marker.dragging.enable()
+
+		const finishEditing = () => {
+			marker.off('dragstart', handleDragStart)
+			marker.off('dragend', handleDragEnd)
+			marker.dragging.disable()
+			MapView.enableAdding()
+		}
+
+		const revertToView = () => {
+			finishEditing()
+			marker.setLatLng(originalLatLng)
+			marker.unbindPopup()
+			marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false, closeOnClick: true }).openPopup()
+		}
+
+		const save = (newName, newDesc) => {
+			finishEditing()
+			marker.unbindPopup()
+			marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false, closeOnClick: true }).openPopup()
+			onSave(newName, newDesc, currentLatLng.lat, currentLatLng.lng)
+		}
+
+		// 2. Tworzymy formularz edycji
+		const content = MapView.createFormPopup(name, desc, save, revertToView)
+
+		// 3. Bindujemy popup formularza z blokadą zamykania przez kliknięcie w mapę
+		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+
+		// 4. Obsługa przeciągania (drag & drop)
+		const handleDragStart = () => {
+			// Schowanie popupu na czas ruchu sprawia, że przeciąganie działa płynnie i bez błędów graficznych
+			marker.closePopup()
+		}
+
+		const handleDragEnd = () => {
+			// Zapamiętujemy nową pozycję, w której użytkownik puścił myszkę
+			currentLatLng = marker.getLatLng()
+			// Otwieramy popup formularza ponownie nad nową pozycją markera
+			marker.openPopup()
+		}
+
+		marker.on('dragstart', handleDragStart)
+		marker.on('dragend', handleDragEnd)
+
+		Log.exit()
 	},
 }
 
@@ -709,6 +861,8 @@ const Panel = {
 			})
 
 			const mainContainer = DOM.create({ type: 'div', classes: ['panel__item-main'], parent: item })
+
+			DOM.on(mainContainer, 'click', () => Handlers.selectWaypointClick(wp.id))
 
 			DOM.create({
 				type: 'span',
@@ -828,11 +982,11 @@ const $ = {
 //#region @r PURE
 //========================
 const Pure = {
-	// @b Escape XML special characters
+	// @b Escape XML
 	//------------------------
 	escapeXml: (text) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
 
-	// @b Build GPX xml string
+	// @b Build GPX xlm
 	//------------------------
 	buildGpx: (waypoints) => {
 		Log.enter('buildGpx')
@@ -856,7 +1010,7 @@ const Pure = {
 		Log.exit()
 		return gpx
 	},
-	// @b Get max allowed panel width
+	// @b Get max panel width
 	//------------------------
 	getMaxPanelWidth: () => Math.min(CONFIG.panel.maxWidth, window.innerWidth - CONFIG.panel.minMapWidth),
 }
@@ -945,10 +1099,15 @@ const Effects = {
 const Logic = {
 	// @b Add waypoint
 	//------------------------
-	addWaypoint: (lat, lon, name, desc = '') => {
+	addWaypoint: (lat, lon, name, desc = '', existingMarker = null) => {
 		Log.enter(name, desc)
 		const id = STATE.nextId++
-		const marker = MapView.addMarker(id, lat, lon, name, desc)
+		const marker = existingMarker || MapView.addMarker(id, lat, lon, name, desc)
+
+		if (existingMarker) {
+			marker.setPopupContent(MapView.createViewPopup(id, name, desc))
+		}
+
 		STATE.waypoints.push({ id, lat, lon, name, desc, marker })
 		Panel.render()
 		Effects.saveWaypoints()
@@ -957,17 +1116,20 @@ const Logic = {
 
 	// @b Edit waypoint
 	//------------------------
-	editWaypoint: (id, newName, newDesc) => {
+	editWaypoint: (id, newName, newDesc, lat, lon) => {
 		Log.enter(id, newName, newDesc)
 		const waypoint = STATE.waypoints.find((wp) => wp.id === id)
 		if (!waypoint) return
 
 		waypoint.name = newName
 		waypoint.desc = newDesc
+		if (typeof lat === 'number' && typeof lon === 'number') {
+			waypoint.lat = lat
+			waypoint.lon = lon
+		}
 
 		if (waypoint.marker) {
-			const updatedPopupElement = MapView._createPopupElement(id, newName, newDesc)
-			waypoint.marker.setPopupContent(updatedPopupElement)
+			waypoint.marker.setPopupContent(MapView.createViewPopup(id, newName, newDesc))
 		}
 
 		Panel.render()
@@ -1105,15 +1267,11 @@ const Handlers = {
 	// @b Map click
 	//------------------------
 	mapClick: (e) => {
-		Log.enter('mapClick', e.latlng)
-		const { lat, lng: lon } = e.latlng
+		if (MapView._instance._popup?.isOpen()) return
 
-		Modal.point(
-			(name, desc) => Logic.addWaypoint(lat, lon, name, desc),
-			'', // początkowa nazwa pusta
-			'', // początkowy opis pusty
-			'Nowy punkt',
-		)
+		Log.enter('mapClick', e.latlng)
+		const { lat, lng } = e.latlng
+		MapView.openAddPopup(lat, lng, (marker, name, desc) => Logic.addWaypoint(lat, lng, name, desc, marker))
 		Log.exit()
 	},
 
@@ -1133,17 +1291,20 @@ const Handlers = {
 	// @b Edit waypoint click
 	//------------------------
 	editWaypointClick: (id) => {
-		Log.enter('editWaypointClick', id)
 		const waypoint = STATE.waypoints.find((wp) => wp.id === id)
 		if (!waypoint) return
 
-		Modal.point(
-			(newName, newDesc) => Logic.editWaypoint(id, newName, newDesc),
-			waypoint.name,
-			waypoint.desc || '',
-			'Edytuj punkt',
-		)
-		Log.exit()
+		MapView.openEditPopup(waypoint.marker, id, waypoint.name, waypoint.desc, (newName, newDesc, lat, lon) => {
+			Logic.editWaypoint(id, newName, newDesc, lat, lon)
+		})
+	},
+
+	// @b Select waypoint click
+	//------------------------
+	selectWaypointClick: (id) => {
+		const waypoint = STATE.waypoints.find((wp) => wp.id === id)
+		if (!waypoint || !waypoint.marker) return
+		MapView.focusMarker(waypoint.marker)
 	},
 
 	// @b Save GPX click
