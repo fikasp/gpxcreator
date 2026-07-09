@@ -1504,6 +1504,13 @@ const Handlers = {
 			MapView._instance.closePopup()
 		}
 	},
+	// @b F2 key
+	//------------------------
+	f2Keydown: (e) => {
+		if (e.key !== 'F2') return
+		e.preventDefault()
+		Handlers.togglePanelClick()
+	},
 }
 //#endregion
 //========================
@@ -1525,10 +1532,15 @@ const Listeners = {
 		DOM.on($.panel.list, 'dragover', Handlers.dragOver)
 		DOM.on($.panel.list, 'drop', Handlers.drop)
 		DOM.on($.panel.list, 'dragend', Handlers.dragEnd)
+		// Resize
 		DOM.on(window, 'resize', Tools.debounce(Handlers.windowResize, 150))
+		// Mouse
 		DOM.on(document, 'mousemove', Handlers.resizerMouseMove)
 		DOM.on(document, 'mouseup', Handlers.resizerMouseUp)
+		// Keys
 		DOM.on(document, 'keydown', Handlers.escapeKeydown)
+		DOM.on(document, 'keydown', Handlers.escapeKeydown)
+		DOM.on(document, 'keydown', Handlers.f2Keydown)
 		Log.exit()
 	},
 }
