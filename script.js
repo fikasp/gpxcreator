@@ -706,11 +706,11 @@ const MapView = {
 		return wrapper
 	},
 
-	// @b Add marke
+	// @b Add marker
 	//------------------------
 	addMarker: (id, lat, lon, name, desc) => {
 		const marker = L.marker([lat, lon]).addTo(MapView._instance)
-		marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false })
+		marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false, ...Pure.getPopupPadding() })
 		return marker
 	},
 
@@ -726,8 +726,8 @@ const MapView = {
 		const panelWidth = STATE.panelCollapsed ? 0 : STATE.panelWidth
 
 		MapView._instance.panInside(marker.getLatLng(), {
-			paddingTopLeft: [20, 20],
-			paddingBottomRight: [panelWidth + 20, 20],
+			paddingTopLeft: [20, CONFIG.map.headerHeight + 20],
+			paddingBottomRight: [panelWidth + 20, CONFIG.map.footerHeight + 20],
 		})
 
 		marker.openPopup()
@@ -769,7 +769,7 @@ const MapView = {
 
 		const content = MapView.createFormPopup('', '', save, cleanup)
 
-		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+		marker.bindPopup(content, { closeButton: false, closeOnClick: false, ...Pure.getPopupPadding() }).openPopup()
 		STATE.activeCancel = cleanup
 
 		marker.on('popupclose', () => {
@@ -807,7 +807,13 @@ const MapView = {
 			finishEditing()
 			marker.setLatLng(originalLatLng)
 			marker.unbindPopup()
-			marker.bindPopup(MapView.createViewPopup(id, name, desc), { closeButton: false, closeOnClick: true }).openPopup()
+			marker
+				.bindPopup(MapView.createViewPopup(id, name, desc), {
+					closeButton: false,
+					closeOnClick: true,
+					...Pure.getPopupPadding(),
+				})
+				.openPopup()
 		}
 
 		const save = (newName, newDesc) => {
@@ -817,7 +823,7 @@ const MapView = {
 
 		const content = MapView.createFormPopup(name, desc, save, revertToView)
 
-		marker.bindPopup(content, { closeButton: false, closeOnClick: false }).openPopup()
+		marker.bindPopup(content, { closeButton: false, closeOnClick: false, ...Pure.getPopupPadding() }).openPopup()
 		STATE.activeCancel = revertToView
 
 		const handleDragStart = () => {
@@ -906,6 +912,8 @@ const CONFIG = {
 		maxZoom: 19,
 		tileUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 		tileAttribution: '&copy; OpenStreetMap contributors',
+		headerHeight: 48,
+		footerHeight: 36,
 	},
 	gpx: {
 		creator: 'GPX Creator',
@@ -1007,6 +1015,17 @@ const Pure = {
 		Log.exit()
 		return gpx
 	},
+
+	// @b Popup autoPan padding
+	//------------------------
+	getPopupPadding: () => {
+		const panelWidth = STATE.panelCollapsed ? 0 : STATE.panelWidth
+		return {
+			autoPanPaddingTopLeft: [20, CONFIG.map.headerHeight + 20],
+			autoPanPaddingBottomRight: [panelWidth + 20, CONFIG.map.footerHeight + 20],
+		}
+	},
+
 	// @b Get max panel width
 	//------------------------
 	getMaxPanelWidth: () => Math.min(CONFIG.panel.maxWidth, window.innerWidth - CONFIG.panel.minMapWidth),
@@ -1538,7 +1557,6 @@ const Listeners = {
 		DOM.on(document, 'mousemove', Handlers.resizerMouseMove)
 		DOM.on(document, 'mouseup', Handlers.resizerMouseUp)
 		// Keys
-		DOM.on(document, 'keydown', Handlers.escapeKeydown)
 		DOM.on(document, 'keydown', Handlers.escapeKeydown)
 		DOM.on(document, 'keydown', Handlers.f2Keydown)
 		Log.exit()
