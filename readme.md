@@ -36,6 +36,11 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⏱️ Historia wersji
 
+* **v2.1 (2026-09-02):** Zapis ustawień.
+  * Zmieniono zapis ustawień pod jednym kluczem `GPX_settings`.
+  * Wprowadzono zapis bieżących punktów pod kluczem `GPX_waypoints`.
+  * Naprawiono zamykanie się popupu na mapie po kliknięciu obok.
+
 * **v2.0 (2026-07-09):** Layout.
   * Zmieniono strukturę layoutu.
   * Dodano przezroczystość i efekt blur.

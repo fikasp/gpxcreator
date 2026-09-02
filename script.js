@@ -1,4 +1,4 @@
-// @p VanillaJS GPX Creator
+// @p GPX Creator
 //========================
 //#region @r UTILITIES
 //========================
@@ -228,6 +228,20 @@ const Storage = {
 			Log.red('Storage write error:', e)
 			return false
 		}
+	},
+	// @b Get setting
+	//------------------------
+	getSetting: (key, defaultValue = null) => {
+		const settings = Storage.get(CONFIG.storage.settings, {})
+		return settings[key] ?? defaultValue
+	},
+
+	// @b Set setting
+	//------------------------
+	setSetting: (key, value) => {
+		const settings = Storage.get(CONFIG.storage.settings, {})
+		settings[key] = value
+		Storage.set(CONFIG.storage.settings, settings)
 	},
 }
 
@@ -631,11 +645,10 @@ const MapView = {
 	init: () => {
 		Log.enter('MapView')
 
-		const savedView = Storage.get(CONFIG.storage.mapView)
-		const center = savedView?.center ?? CONFIG.map.center
-		const zoom = savedView?.zoom ?? CONFIG.map.zoom
+		const center = STATE.mapView?.center ?? CONFIG.map.center
+		const zoom = STATE.mapView?.zoom ?? CONFIG.map.zoom
 
-		MapView._instance = L.map($.main.map, { keyboard: false }).setView(center, zoom)
+		MapView._instance = L.map($.main.map, { keyboard: false, closePopupOnClick: false }).setView(center, zoom)
 
 		L.tileLayer(CONFIG.map.tileUrl, {
 			attribution: CONFIG.map.tileAttribution,
@@ -644,6 +657,8 @@ const MapView = {
 
 		MapView._instance.on('click', Handlers.mapClick)
 		MapView._instance.on('moveend zoomend', Tools.debounce(Effects.saveMapView, 300))
+		MapView._instance.on('popupopen', () => (STATE.popupOpen = true))
+		MapView._instance.on('popupclose', () => (STATE.popupOpen = false))
 		Log.exit()
 	},
 
@@ -925,11 +940,8 @@ const CONFIG = {
 		minMapWidth: 0,
 	},
 	storage: {
-		mapView: 'map-view',
-		panelCollapsed: 'panel-collapsed',
-		panelWidth: 'panel-width',
-		waypoints: 'waypoints',
-		listName: 'list-name',
+		settings: 'GPX_settings',
+		waypoints: 'GPX_waypoints',
 	},
 	defaults: {
 		listName: 'Punkty',
@@ -940,17 +952,18 @@ const CONFIG = {
 
 //#endregion
 //========================
-//#region @r APP STATE
+//#region @r STATE
 //========================
 const STATE = {
 	waypoints: [],
 	nextId: 1,
-	panelCollapsed: Storage.get(CONFIG.storage.panelCollapsed) ?? CONFIG.defaults.panelCollapsed,
-	panelWidth: Storage.get(CONFIG.storage.panelWidth) ?? CONFIG.defaults.panelWidth,
-	listName: Storage.get(CONFIG.storage.listName) ?? CONFIG.defaults.listName,
+	panelCollapsed: CONFIG.defaults.panelCollapsed,
+	panelWidth: CONFIG.defaults.panelWidth,
+	listName: CONFIG.defaults.listName,
 	isDragging: false,
 	activeCancel: null,
 	draggedId: null,
+	popupOpen: false,
 }
 //#endregion
 //========================
@@ -1076,6 +1089,17 @@ const Effects = {
 		Log.exit()
 	},
 
+	// @b Save all settings to storage
+	//------------------------
+	saveSettings: () => {
+		Storage.set(CONFIG.storage.settings, {
+			panelCollapsed: STATE.panelCollapsed,
+			panelWidth: STATE.panelWidth,
+			listName: STATE.listName,
+			mapView: STATE.mapView,
+		})
+	},
+
 	// @b Save waypoints to storage
 	//------------------------
 	saveWaypoints: () => {
@@ -1088,10 +1112,8 @@ const Effects = {
 	saveMapView: () => {
 		if (!MapView._instance) return
 		const center = MapView._instance.getCenter()
-		Storage.set(CONFIG.storage.mapView, {
-			center: [center.lat, center.lng],
-			zoom: MapView._instance.getZoom(),
-		})
+		STATE.mapView = { center: [center.lat, center.lng], zoom: MapView._instance.getZoom() }
+		Effects.saveSettings()
 	},
 
 	// @b Update panel visibility
@@ -1102,7 +1124,7 @@ const Effects = {
 		} else {
 			DOM.addClass($.panel.element, 'main__panel--expanded')
 		}
-		Storage.set(CONFIG.storage.panelCollapsed, STATE.panelCollapsed)
+		Effects.saveSettings()
 	},
 
 	// @b Apply panel width
@@ -1285,6 +1307,16 @@ const Logic = {
 		STATE.panelWidth = Math.min(STATE.panelWidth, maxWidth)
 		STATE.panelWidth = Math.max(STATE.panelWidth, CONFIG.panel.minWidth)
 	},
+
+	// @b Load settings
+	//------------------------
+	loadSettings: () => {
+		const settings = Storage.get(CONFIG.storage.settings, {})
+		STATE.panelCollapsed = settings.panelCollapsed ?? CONFIG.defaults.panelCollapsed
+		STATE.panelWidth = settings.panelWidth ?? CONFIG.defaults.panelWidth
+		STATE.listName = settings.listName ?? CONFIG.defaults.listName
+		STATE.mapView = settings.mapView ?? null
+	},
 }
 //#endregion
 //========================
@@ -1296,6 +1328,11 @@ const Handlers = {
 	// @b Map click
 	//------------------------
 	mapClick: (e) => {
+		if (STATE.popupOpen) {
+			MapView._instance.closePopup()
+			return
+		}
+
 		Log.enter('mapClick', e.latlng)
 		const { lat, lng } = e.latlng
 		MapView.openAddPopup(lat, lng, (marker, name, desc) => Logic.addWaypoint(lat, lng, name, desc, marker))
@@ -1416,7 +1453,7 @@ const Handlers = {
 
 		STATE.isDragging = false
 		DOM.removeClass($.panel.resizer, 'panel__resizer--dragging')
-		Storage.set(CONFIG.storage.panelWidth, STATE.panelWidth)
+		Effects.saveSettings()
 
 		Log.exit()
 	},
@@ -1429,7 +1466,7 @@ const Handlers = {
 
 		if (STATE.panelWidth !== previousWidth) {
 			Effects.applyPanelWidth()
-			Storage.set(CONFIG.storage.panelWidth, STATE.panelWidth)
+			Effects.saveSettings()
 		}
 
 		if (MapView._instance) {
@@ -1491,7 +1528,7 @@ const Handlers = {
 		const newName = DOM.getText(e.target).trim() || CONFIG.defaults.listName
 		STATE.listName = newName
 		Effects.applyListName()
-		Storage.set(CONFIG.storage.listName, newName)
+		Effects.saveSettings()
 	},
 
 	// @b Title name keydown
@@ -1564,13 +1601,14 @@ const Listeners = {
 }
 //#endregion
 //========================
-//#region @r APP INIT
+//#region @r APP
 //========================
 const App = {
 	init: () => {
 		Log.init()
 		Log.start('App init')
 		Log.enter('App')
+		Logic.loadSettings()
 		Modal.init()
 		MapView.init()
 		Logic.loadWaypoints()
