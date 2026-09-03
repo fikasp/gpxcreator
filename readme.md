@@ -36,32 +36,32 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 
 ## ⏱️ Historia wersji
 
-* **v2.1 (2026-09-02):** Zapis ustawień.
-  * Zmieniono zapis ustawień pod jednym kluczem `GPX_settings`.
-  * Wprowadzono zapis bieżących punktów pod kluczem `GPX_waypoints`.
-  * Naprawiono zamykanie się popupu na mapie po kliknięciu obok.
+* **v2.1 (2026-09-02):**
+  * Zmiana zapisu ustawień pod jednym kluczem `GPX_settings`.
+  * Wprowadzenie zapisu bieżących punktów pod kluczem `GPX_waypoints`.
+  * Naprawa zamykania się popupu na mapie po kliknięciu obok.
 
-* **v2.0 (2026-07-09):** Layout.
-  * Zmieniono strukturę layoutu.
-  * Dodano przezroczystość i efekt blur.
-  * Dodano obsługę klawisza F2.
+* **v2.0 (2026-07-09):**
+  * Zmiana struktury layoutu.
+  * Dodanie przezroczystości i efektu blur.
+  * Dodanie obsługi klawisza F2.
 
-* **v1.3 (2026-07-09):** Dodatkowe funkcjonalności.
-  * Dodano kliknięcie punktu z listy w panelu, aby wycentrować na nim mapę.
-  * Dodano ręczne przesuwanie punktu markera na mapie, aby zmienić jego lokalizację.
-  * Dodano obsługę klawisza Escape do anulowania edycji/dodawania i zamykania popupów.
-  * Dodano edytowalną nazwę listy punktów w nagłówku panelu.
+* **v1.3 (2026-07-09):**
+  * Dodanie kliknięcia punktu z listy w panelu, aby wycentrować na nim mapę.
+  * Dodanie ręcznego przesuwania punktu markera na mapie, aby zmienić jego lokalizację.
+  * Dodanie obsługi klawisza Escape do anulowania edycji/dodawania i zamykania popupów.
+  * Dodanie edytowalnej nazwy listy punktów w nagłówku panelu.
 
-* **v1.2 (2026-07-08):** Popupy zamiast okienek modalnych.
-  * Zastąpiono okienka modalne popupami przy edycji i dodawaniu punktów.
-  * Dodano ręczne sortowanie punktów w panelu metodą przeciągnij-upuść.
-  * Dodano przycisk sortowania alfabetycznego listy punktów.
-  * Dodano zapamiętywanie ostatniego widoku mapy.
+* **v1.2 (2026-07-08):**
+  * Zastąpienie okienka modalnego popupami przy edycji i dodawaniu punktów.
+  * Dodanie ręcznego sortowania punktów w panelu metodą przeciągnij-upuść.
+  * Dodanie przycisku sortowania alfabetycznego listy punktów.
+  * Dodanie zapamiętywania ostatniego widoku mapy.
 
-* **v1.1 (2026-07-08):** Import plików.
-  * Dodano import plików GPX z możliwością wczytania punktów z dysku.
-  * Dodano automatyczny zapis punktów w `localStorage`.
-  * Dodano przeciąganie szerokości panelu.
+* **v1.1 (2026-07-08):**
+  * Dodanie importu plików GPX z możliwością wczytania punktów z dysku.
+  * Dodanie automatycznego zapis punktów w `localStorage`.
+  * Dodanie przeciąganie szerokości panelu.
 
 * **v1.0 (2026-07-07):** Pierwsza publiczna wersja aplikacji.
   * Aplikacja do tworzenia plików GPX na bazie punktów z mapy OpenStreetMap.
