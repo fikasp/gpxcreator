@@ -18,6 +18,13 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 - `index.html` — plik główny
 - `README.md` — dokumentacja
 
+## ⚙️ Technologie
+
+* **HTML5 + CSS3**
+* **JavaScript (ES6)**
+* **Leaflet** — biblioteka do interaktywnych map
+* **OpenStreetMap** — źródło kafelków mapowych
+
 ## 📄 Instrukcja użycia
 
 1. **Otwórz `index.html`** w przeglądarce.
@@ -26,13 +33,6 @@ Prosta aplikacja webowa do tworzenia plików GPX na podstawie punktów zaznaczan
 4. Punkt pojawi się na mapie i na liście w panelu bocznym.
 5. Powtórz dla kolejnych punktów, w razie potrzeby usuwaj je przyciskiem **×**.
 6. Kliknij **„Zapisz”**, aby pobrać plik `Punkty.gpx` na dysk.
-
-## ⚙️ Technologie
-
-* **HTML5 + CSS3**
-* **JavaScript (ES6)**
-* **Leaflet** — biblioteka do interaktywnych map
-* **OpenStreetMap** — źródło kafelków mapowych
 
 ## ⏱️ Historia wersji
 

@@ -940,8 +940,8 @@ const CONFIG = {
 		minMapWidth: 0,
 	},
 	storage: {
-		settings: 'GPX_settings',
-		waypoints: 'GPX_waypoints',
+		settings: 'GPC_settings',
+		waypoints: 'GPC_waypoints',
 	},
 	defaults: {
 		listName: 'Punkty',
